@@ -40,7 +40,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // Remember where the icon was ⌘-dragged to in the menu bar.
+        statusItem.autosaveName = "VoiceClicker"
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
@@ -219,11 +221,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func refreshIcon() {
         guard let button = statusItem?.button else { return }
-        let symbol: String
+        var symbol = "av.remote"
         var tint: NSColor?
+        var listeningDot = false
         switch (flash, learning) {
         case (.voice?, _):
-            symbol = "mic.fill"
+            symbol = "av.remote.fill"
             tint = .systemOrange
         case (.submit?, _):
             symbol = "return"
@@ -232,25 +235,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             symbol = "hand.point.up.left.fill"
             tint = .systemBlue
         case (nil, .none):
-            if !isReady {
-                symbol = "mic.slash"
-            } else if dictating {
-                symbol = "mic.fill"
-                tint = .systemRed
-            } else {
-                symbol = "mic"
-            }
+            listeningDot = isReady && dictating
         }
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Voice Clicker")
-        image?.isTemplate = true
-        button.image = image
+        button.image = Self.icon(symbol, listeningDot: listeningDot)
         button.contentTintColor = tint
+        // Dimmed when off, disconnected or missing a permission.
+        button.appearsDisabled = !isReady && flash == nil && learning == .none
         let status = statusLine
         button.toolTip = "Voice Clicker: \(status)"
         if status != loggedStatus {
             loggedStatus = status
             log.info("Status: \(status, privacy: .public) (accessibility: \(Permissions.accessibility), input monitoring: \(Permissions.inputMonitoring))")
         }
+    }
+
+    /// The menu bar image, with a small red dot while dictating.
+    private static func icon(_ symbol: String, listeningDot: Bool) -> NSImage? {
+        let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
+        guard let base = (NSImage(systemSymbolName: symbol, accessibilityDescription: "Voice Clicker")
+            ?? NSImage(systemSymbolName: "dot.radiowaves.left.and.right", accessibilityDescription: "Voice Clicker"))?
+            .withSymbolConfiguration(config) else { return nil }
+        guard listeningDot else {
+            base.isTemplate = true
+            return base
+        }
+        // A template image can't carry colour, so tint the glyph to the menu
+        // bar's text colour ourselves and add the red dot.
+        let size = NSSize(width: base.size.width + 4, height: max(base.size.height, 16))
+        let image = NSImage(size: size, flipped: false) { rect in
+            let glyph = NSImage(size: base.size, flipped: false) { r in
+                base.draw(in: r)
+                NSColor.labelColor.set()
+                r.fill(using: .sourceAtop)
+                return true
+            }
+            glyph.draw(in: NSRect(x: 0, y: (rect.height - base.size.height) / 2,
+                                  width: base.size.width, height: base.size.height))
+            let d: CGFloat = 7
+            let dot = NSRect(x: rect.width - d, y: rect.height - d, width: d, height: d)
+            NSColor.systemRed.setFill()
+            NSBezierPath(ovalIn: dot).fill()
+            return true
+        }
+        image.isTemplate = false
+        return image
     }
 
     private var statusLine: String {
@@ -280,18 +308,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
 
-        menu.addItem(disabled(statusLine))
-        menu.addItem(disabled("Last action: \(lastAction)"))
-        menu.addItem(item(settings.enabled ? "Turn Off" : "Turn On", #selector(toggleEnabled)))
-        menu.addItem(.separator())
-
+        menu.addItem(disabled(isReady ? "Voice Clicker is running" : "Voice Clicker: \(statusLine)"))
         if !Permissions.accessibility {
             menu.addItem(item("Grant Accessibility…", #selector(grantAccessibility)))
         }
         if settings.inputMode == .spotlight && !Permissions.inputMonitoring {
             menu.addItem(item("Grant Input Monitoring…", #selector(grantInputMonitoring)))
         }
+        if learning != .none {
+            menu.addItem(item("Cancel Learning", #selector(cancelLearning)))
+        }
+        menu.addItem(.separator())
+        menu.addItem(item(settings.enabled ? "Turn Off" : "Turn On", #selector(toggleEnabled)))
 
+        // Everything else stays out of the way unless Option is held.
+        if NSEvent.modifierFlags.contains(.option) {
+            menu.addItem(submenu("Advanced", advancedMenu()))
+        }
+
+        menu.addItem(.separator())
+        menu.addItem(item("Launch at Login", #selector(toggleLaunchAtLogin), on: SMAppService.mainApp.status == .enabled))
+        menu.addItem(item("Quit", #selector(quit), key: "q"))
+    }
+
+    private func advancedMenu() -> NSMenu {
+        let advanced = NSMenu()
+        advanced.addItem(disabled(statusLine))
+        advanced.addItem(disabled("Last action: \(lastAction)"))
+        advanced.addItem(.separator())
         let voiceName: String
         let submitName: String
         switch settings.inputMode {
@@ -302,20 +346,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             voiceName = settings.voiceKey?.name ?? "not set"
             submitName = settings.submitKey?.name ?? "not set"
         }
-        menu.addItem(disabled("Voice button: \(voiceName)"))
-        menu.addItem(disabled("Submit button: \(submitName)"))
+        advanced.addItem(disabled("Voice button: \(voiceName)"))
+        advanced.addItem(disabled("Submit button: \(submitName)"))
         if learning == .none {
-            menu.addItem(item("Learn Buttons…", #selector(learnButtons)))
-        } else {
-            menu.addItem(item("Cancel Learning", #selector(cancelLearning)))
+            advanced.addItem(item("Learn Buttons…", #selector(learnButtons)))
         }
-        menu.addItem(.separator())
+        advanced.addItem(.separator())
 
         let actions = NSMenu()
         actions.addItem(disabled("Next sends: \(settings.dictationShortcut.name)"))
         actions.addItem(item("Record Dictation Shortcut…", #selector(recordVoiceKey)))
         actions.addItem(item("Reset to ⌘D", #selector(resetVoiceKey)))
-        menu.addItem(submenu("Button Actions", actions))
+        advanced.addItem(submenu("Button Actions", actions))
 
         let apps = NSMenu()
         apps.addItem(disabled("Only active in:"))
@@ -333,7 +375,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             apps.addItem(i)
         }
         apps.addItem(item("Reset to Claude Desktop", #selector(resetTargetApps)))
-        menu.addItem(submenu("Apps", apps))
+        advanced.addItem(submenu("Apps", apps))
 
         let input = NSMenu()
         input.addItem(item("Spotlight Directly (Recommended)", #selector(useSpotlightInput), on: settings.inputMode == .spotlight))
@@ -341,11 +383,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         input.addItem(.separator())
         input.addItem(item("Exclusive Access to Spotlight", #selector(toggleExclusive), on: settings.exclusiveAccess))
         input.addItem(item("Open Bluetooth Settings…", #selector(openBluetooth)))
-        menu.addItem(submenu("Clicker Input", input))
-
-        menu.addItem(.separator())
-        menu.addItem(item("Launch at Login", #selector(toggleLaunchAtLogin), on: SMAppService.mainApp.status == .enabled))
-        menu.addItem(item("Quit Voice Clicker", #selector(quit), key: "q"))
+        advanced.addItem(submenu("Clicker Input", input))
+        return advanced
     }
 
     private func item(_ title: String, _ action: Selector, on: Bool = false, key: String = "") -> NSMenuItem {

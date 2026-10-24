@@ -9,20 +9,20 @@ A small macOS menu bar app that turns a **Logitech Spotlight** presentation clic
 
 The buttons only do this while the Claude desktop app is the frontmost app. With anything else in front, the clicker passes its normal keys through, so it still works as a presenter remote.
 
-You can swap the buttons with **Learn Buttons…** in the menu.
-
-A microphone icon in the menu bar shows the app's state:
+A small remote icon in the menu bar shows the app's state:
 
 | Icon | Meaning |
 | --- | --- |
-| 🎙 `mic` | On, Spotlight connected, ready |
-| `mic.slash` | Off, the Spotlight isn't connected, or a permission is missing (open the menu to see which) |
-| 🟠 filled mic (flash) | You pressed the voice button |
-| 🟢 return arrow (flash) | You pressed the submit button |
-| 🔴 filled mic | Dictating (Next pressed once) |
+| Remote (`av.remote`) | On, Spotlight connected, ready |
+| Dimmed remote | Off, the Spotlight isn't connected, or a permission is missing (open the menu to see which) |
+| Remote with a red dot | Dictating (Next pressed once) |
+| 🟠 filled remote (flash) | You pressed Next |
+| 🟢 return arrow (flash) | You pressed Back |
 | 🔵 hand | Waiting for you to press a button while learning |
 
-Click the icon for status, the last action, settings, and **Turn Off / Turn On**.
+The menu stays minimal: whether the app is running, **Turn Off / Turn On**, **Launch at Login** and **Quit**. Hold **Option** while you click the icon to see **Advanced** settings.
+
+If the icon vanishes when the menu bar gets crowded (on a MacBook with a notch, macOS hides the leftmost icons), hold **⌘** and drag the remote further right. The app remembers where you put it.
 
 ## Requirements
 
@@ -94,7 +94,7 @@ When you switch a permission on, System Settings may offer **Quit & Reopen**. Th
 3. Press **Next** again to stop dictation.
 4. Press **Back** to press Enter.
 
-## Settings (in the menu)
+## Advanced settings (hold Option and click the icon)
 
 - **Learn Buttons…**: press the button for voice, then the one for submit.
 - **Button Actions → Record Dictation Shortcut… / Reset to ⌘D**: the shortcut Next sends.
@@ -104,6 +104,16 @@ When you switch a permission on, System Settings may offer **Quit & Reopen**. Th
   - *Keystrokes*: react to keys from any keyboard (for Options+ remaps).
   - *Exclusive Access to Spotlight*: on by default, so the clicker's arrow keys don't also reach Claude. If macOS refuses it (it does over Bluetooth), Voice Clicker falls back to shared access and swallows those keys itself; the status line then says "shared access".
 - **Launch at Login**: works when the app runs from `/Applications`.
+
+## Using it with more than one Mac
+
+Each Mac needs its own copy of Voice Clicker. Clone the repo and run `make install` on each one, and grant the two permissions there. Each copy only reacts to clicks that reach its own Mac, so they don't interfere with each other.
+
+The Spotlight can connect in two ways, through its USB receiver or over Bluetooth. Logitech's support pages don't say whether it stays connected to two computers at once, or how it picks one. What should work:
+
+- **Moving the USB receiver** between Macs. The clicker is paired to its receiver, so it works on whichever Mac has the receiver plugged in.
+- **Receiver on one Mac, Bluetooth on the other.** This may also work. Turn Bluetooth off on the Mac you're not using if the clicker goes to the wrong one.
+- **Bluetooth on each Mac in turn:** re-pair (hold the top and bottom buttons for about 3 seconds) whenever you switch.
 
 ## Troubleshooting
 
