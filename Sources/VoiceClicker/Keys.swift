@@ -1,51 +1,22 @@
 import CoreGraphics
 import Foundation
 
-/// A button on the clicker, identified by the HID usage it reports.
-struct HIDButton: Codable, Equatable {
-    let page: UInt32
-    let usage: UInt32
+/// The two Spotlight buttons the app uses. Out of the box (no Logitech
+/// software), Next sends Right Arrow and Back sends Left Arrow.
+enum SpotlightButton {
+    case next, back
 
-    static let keyboardPage: UInt32 = 0x07
-    static let consumerPage: UInt32 = 0x0C
-
-    // Out of the box (no Logitech software), Spotlight's Next button sends
-    // Right Arrow and its Back button sends Left Arrow.
-    static let spotlightNext = HIDButton(page: keyboardPage, usage: 0x4F)
-    static let spotlightBack = HIDButton(page: keyboardPage, usage: 0x50)
-
-    var name: String {
-        if page == Self.keyboardPage, let entry = Self.keyboardUsages[usage] {
-            return entry.name
+    /// Maps a HID keyboard usage from the Spotlight to a button.
+    init?(usage: UInt32) {
+        switch usage {
+        case 0x4F: self = .next
+        case 0x50: self = .back
+        default: return nil
         }
-        if page == Self.keyboardPage {
-            return String(format: "Key 0x%02X", usage)
-        }
-        if page == Self.consumerPage {
-            return String(format: "Media key 0x%02X", usage)
-        }
-        return String(format: "Usage %02X:%02X", page, usage)
     }
 
-    /// The macOS virtual key code the system produces for this button, if known.
-    /// Used to swallow the key when the device could not be opened exclusively.
-    var keyCode: CGKeyCode? {
-        guard page == Self.keyboardPage else { return nil }
-        return Self.keyboardUsages[usage]?.keyCode
-    }
-
-    private static let keyboardUsages: [UInt32: (name: String, keyCode: CGKeyCode)] = [
-        0x04: ("A", 0), 0x05: ("B", 11), 0x28: ("Return", 36), 0x29: ("Escape", 53),
-        0x2B: ("Tab", 48), 0x2C: ("Space", 49), 0x37: ("Period", 47),
-        0x3A: ("F1", 122), 0x3B: ("F2", 120), 0x3C: ("F3", 99), 0x3D: ("F4", 118),
-        0x3E: ("F5", 96), 0x3F: ("F6", 97), 0x40: ("F7", 98), 0x41: ("F8", 100),
-        0x42: ("F9", 101), 0x43: ("F10", 109), 0x44: ("F11", 103), 0x45: ("F12", 111),
-        0x4B: ("Page Up", 116), 0x4E: ("Page Down", 121),
-        0x4F: ("Right Arrow", 124), 0x50: ("Left Arrow", 123),
-        0x51: ("Down Arrow", 125), 0x52: ("Up Arrow", 126),
-        0x68: ("F13", 105), 0x69: ("F14", 107), 0x6A: ("F15", 113), 0x6B: ("F16", 106),
-        0x6C: ("F17", 64), 0x6D: ("F18", 79), 0x6E: ("F19", 80),
-    ]
+    /// The virtual key code macOS produces for this button.
+    var keyCode: CGKeyCode { self == .next ? 124 : 123 }
 }
 
 /// A key plus modifiers, as seen by (or sent to) the window server.
@@ -54,6 +25,7 @@ struct KeyShortcut: Codable, Equatable {
     let modifiers: UInt64
 
     static let relevantModifiers: CGEventFlags = [.maskCommand, .maskShift, .maskAlternate, .maskControl]
+    static let commandD = KeyShortcut(keyCode: 2, flags: .maskCommand)
 
     init(keyCode: CGKeyCode, flags: CGEventFlags) {
         self.keyCode = keyCode

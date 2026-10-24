@@ -5,27 +5,20 @@ import os
 private let log = Logger(subsystem: "com.codehex.VoiceClicker", category: "app")
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
-    private enum Learning {
-        case none, voiceButton, submitButton, voiceKey
-    }
-
-    private enum Flash {
-        case voice, submit
-    }
-
     private let settings = Settings.shared
     private let hid = SpotlightHID()
     private let keyTap = KeyTap()
     private var statusItem: NSStatusItem!
-    private var learning = Learning.none
+    /// True while waiting for the user to press a new dictation shortcut.
+    private var recordingShortcut = false
     private var dictatingSince: Date?
-    /// Claude Code ends a recording on its own after two minutes, so don't
-    /// believe we're still dictating after that.
+    /// The app only knows what it sent, so stop showing the dictating dot
+    /// after two minutes in case dictation ended on its own.
     private var dictating: Bool {
         get { dictatingSince.map { Date().timeIntervalSince($0) < 120 } ?? false }
         set { dictatingSince = newValue ? Date() : nil }
     }
-    private var flash: Flash?
+    private var flash: SpotlightButton?
     private var flashGeneration = 0
     private var lastAction = "None yet"
     private var hadInputMonitoring = Permissions.inputMonitoring
@@ -47,7 +40,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
 
-        hid.onButton = { [weak self] button, pressed in self?.hidButton(button, pressed: pressed) }
+        hid.onButton = { [weak self] button, pressed, seized in
+            self?.hidButton(button, pressed: pressed, seized: seized)
+        }
         hid.onDevicesChanged = { [weak self] in self?.refreshIcon() }
         keyTap.handler = { [weak self] code, flags, isDown, isRepeat in
             self?.keyEvent(code, flags: flags, isDown: isDown, isRepeat: isRepeat) ?? false
@@ -71,42 +66,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let gainedInputMonitoring = inputMonitoring && !hadInputMonitoring
         hadInputMonitoring = inputMonitoring
 
-        let wantHID = settings.inputMode == .spotlight
-        if wantHID && (!hid.isRunning || gainedInputMonitoring) {
-            hid.start(seize: settings.exclusiveAccess)
-        } else if !wantHID && hid.isRunning {
-            hid.stop()
-        }
+        if !hid.isRunning || gainedInputMonitoring { hid.start() }
         refreshIcon()
     }
 
     // MARK: - Input
 
-    private func hidButton(_ button: HIDButton, pressed: Bool) {
-        let isMapped = button == settings.voiceButton || button == settings.submitButton
-        let learningButtons = learning == .voiceButton || learning == .submitButton
-        let acting = learningButtons || (isMapped && settings.enabled && isTargetFrontmost)
-        if let code = button.keyCode {
-            if hid.allSeized {
-                // Exclusive access hides the clicker's keys from the system, so
-                // pass them on ourselves when another app is in front.
-                if pressed && !acting { Actions.press(keyCode: code) }
-            } else if pressed && acting {
-                heldKeyCodes.insert(code)
-                swallowUntil[code] = Date().addingTimeInterval(0.3)
-            } else if !pressed, heldKeyCodes.remove(code) != nil {
-                // Swallow the release of any press we swallowed.
-                swallowUntil[code] = Date().addingTimeInterval(0.3)
-            }
+    private func hidButton(_ button: SpotlightButton, pressed: Bool, seized: Bool) {
+        let acting = settings.enabled && isTargetFrontmost
+        let code = button.keyCode
+        if seized {
+            // Exclusive access hides the clicker's keys from the system, so
+            // pass them on ourselves when the clicker isn't acting.
+            if pressed && !acting { Actions.press(keyCode: code) }
+        } else if pressed && acting {
+            heldKeyCodes.insert(code)
+            swallowUntil[code] = Date().addingTimeInterval(0.3)
+        } else if !pressed, heldKeyCodes.remove(code) != nil {
+            // Swallow the release of any press we swallowed.
+            swallowUntil[code] = Date().addingTimeInterval(0.3)
         }
-        guard pressed else { return }
-
-        if settings.inputMode == .spotlight, learnButton(button: button, key: nil) { return }
-        guard settings.inputMode == .spotlight, learning == .none, settings.enabled, isTargetFrontmost else { return }
-        if button == settings.voiceButton {
-            triggerVoice()
-        } else if button == settings.submitButton {
-            triggerSubmit()
+        guard pressed, acting else { return }
+        switch button {
+        case .next: triggerVoice()
+        case .back: triggerSubmit()
         }
     }
 
@@ -115,59 +98,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if heldKeyCodes.contains(code) { return true }
         if let until = swallowUntil[code], until > Date() { return true }
 
-        let shortcut = KeyShortcut(keyCode: code, flags: flags)
-        if learning == .voiceKey {
+        if recordingShortcut {
             if isDown && !isRepeat {
+                let shortcut = KeyShortcut(keyCode: code, flags: flags)
                 settings.dictationShortcut = shortcut
-                learning = .none
+                recordingShortcut = false
                 lastAction = "Dictation shortcut set to \(shortcut.name)"
                 refreshIcon()
             }
             return true
         }
-
-        guard settings.inputMode == .keystrokes else { return false }
-        if learning == .voiceButton || learning == .submitButton {
-            if isDown && !isRepeat { _ = learnButton(button: nil, key: shortcut) }
-            return true
-        }
-        guard settings.enabled, isTargetFrontmost else { return false }
-        if shortcut == settings.voiceKey {
-            if isDown && !isRepeat { triggerVoice() }
-            return true
-        }
-        if shortcut == settings.submitKey {
-            if isDown && !isRepeat { triggerSubmit() }
-            return true
-        }
         return false
-    }
-
-    /// Handles a press while learning which clicker button does what.
-    private func learnButton(button: HIDButton?, key: KeyShortcut?) -> Bool {
-        switch learning {
-        case .voiceButton:
-            if let button { settings.voiceButton = button }
-            if let key { settings.voiceKey = key }
-            learning = .submitButton
-            lastAction = "Voice button set to \(button?.name ?? key?.name ?? "?")"
-        case .submitButton:
-            if let button {
-                if button == settings.voiceButton { NSSound.beep(); return true }
-                settings.submitButton = button
-            }
-            if let key {
-                if key == settings.voiceKey { NSSound.beep(); return true }
-                settings.submitKey = key
-            }
-            learning = .none
-            lastAction = "Submit button set to \(button?.name ?? key?.name ?? "?")"
-            startServices()
-        case .none, .voiceKey:
-            return false
-        }
-        refreshIcon()
-        return true
     }
 
     // MARK: - Actions
@@ -180,7 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Sends the dictation shortcut, which starts dictation or stops it.
     private func triggerVoice() {
-        showFlash(.voice)
+        showFlash(.next)
         let shortcut = settings.dictationShortcut
         Actions.press(shortcut)
         dictating.toggle()
@@ -190,7 +131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Presses Enter, exactly like the key on the keyboard.
     private func triggerSubmit() {
-        showFlash(.submit)
+        showFlash(.back)
         dictating = false
         Actions.press(keyCode: Actions.returnKey)
         lastAction = "Sent Enter to \(Actions.frontmostAppName)"
@@ -200,14 +141,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Status icon
 
     private var isReady: Bool {
-        guard settings.enabled, Permissions.accessibility else { return false }
-        switch settings.inputMode {
-        case .spotlight: return hid.isConnected
-        case .keystrokes: return keyTap.isRunning && settings.voiceKey != nil && settings.submitKey != nil
-        }
+        settings.enabled && Permissions.accessibility && hid.isConnected
     }
 
-    private func showFlash(_ kind: Flash) {
+    private func showFlash(_ kind: SpotlightButton) {
         flash = kind
         flashGeneration += 1
         let generation = flashGeneration
@@ -224,23 +161,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var symbol = "av.remote"
         var tint: NSColor?
         var listeningDot = false
-        switch (flash, learning) {
-        case (.voice?, _):
+        switch flash {
+        case .next?:
             symbol = "av.remote.fill"
             tint = .systemOrange
-        case (.submit?, _):
+        case .back?:
             symbol = "return"
             tint = .systemGreen
-        case (nil, .voiceButton), (nil, .submitButton), (nil, .voiceKey):
+        case nil where recordingShortcut:
             symbol = "hand.point.up.left.fill"
             tint = .systemBlue
-        case (nil, .none):
+        case nil:
             listeningDot = isReady && dictating
         }
         button.image = Self.icon(symbol, listeningDot: listeningDot)
         button.contentTintColor = tint
         // Dimmed when off, disconnected or missing a permission.
-        button.appearsDisabled = !isReady && flash == nil && learning == .none
+        button.appearsDisabled = !isReady && flash == nil && !recordingShortcut
         let status = statusLine
         button.toolTip = "Voice Clicker: \(status)"
         if status != loggedStatus {
@@ -283,24 +220,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var statusLine: String {
         if !settings.enabled { return "Off" }
-        switch learning {
-        case .voiceButton: return "Press the clicker button for VOICE…"
-        case .submitButton: return "Press the clicker button for SUBMIT…"
-        case .voiceKey: return "Press the dictation shortcut…"
-        case .none: break
-        }
+        if recordingShortcut { return "Press the dictation shortcut…" }
         if !Permissions.accessibility { return "Needs Accessibility permission" }
-        switch settings.inputMode {
-        case .spotlight:
-            if !Permissions.inputMonitoring { return "Needs Input Monitoring permission" }
-            if let device = hid.devices.first {
-                return "On, \(device.name)\(hid.allSeized ? "" : ", shared access")"
-            }
-            return hid.lastError ?? "On, waiting for Spotlight (press a button to wake it)"
-        case .keystrokes:
-            if settings.voiceKey == nil || settings.submitKey == nil { return "Learn buttons to finish setup" }
-            return "On, listening for keystrokes"
+        if !Permissions.inputMonitoring { return "Needs Input Monitoring permission" }
+        if let device = hid.devices.first {
+            return "On, \(device.name)\(hid.allSeized ? "" : ", shared access")"
         }
+        return hid.lastError ?? "On, waiting for Spotlight (press a button to wake it)"
     }
 
     // MARK: - Menu
@@ -312,11 +238,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !Permissions.accessibility {
             menu.addItem(item("Grant Accessibility…", #selector(grantAccessibility)))
         }
-        if settings.inputMode == .spotlight && !Permissions.inputMonitoring {
+        if !Permissions.inputMonitoring {
             menu.addItem(item("Grant Input Monitoring…", #selector(grantInputMonitoring)))
         }
-        if learning != .none {
-            menu.addItem(item("Cancel Learning", #selector(cancelLearning)))
+        if recordingShortcut {
+            menu.addItem(item("Cancel Recording", #selector(cancelRecording)))
         }
         menu.addItem(.separator())
         menu.addItem(item(settings.enabled ? "Turn Off" : "Turn On", #selector(toggleEnabled)))
@@ -336,28 +262,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         advanced.addItem(disabled(statusLine))
         advanced.addItem(disabled("Last action: \(lastAction)"))
         advanced.addItem(.separator())
-        let voiceName: String
-        let submitName: String
-        switch settings.inputMode {
-        case .spotlight:
-            voiceName = settings.voiceButton.name
-            submitName = settings.submitButton.name
-        case .keystrokes:
-            voiceName = settings.voiceKey?.name ?? "not set"
-            submitName = settings.submitKey?.name ?? "not set"
-        }
-        advanced.addItem(disabled("Voice button: \(voiceName)"))
-        advanced.addItem(disabled("Submit button: \(submitName)"))
-        if learning == .none {
-            advanced.addItem(item("Learn Buttons…", #selector(learnButtons)))
-        }
-        advanced.addItem(.separator())
 
-        let actions = NSMenu()
-        actions.addItem(disabled("Next sends: \(settings.dictationShortcut.name)"))
-        actions.addItem(item("Record Dictation Shortcut…", #selector(recordVoiceKey)))
-        actions.addItem(item("Reset to ⌘D", #selector(resetVoiceKey)))
-        advanced.addItem(submenu("Button Actions", actions))
+        let shortcut = NSMenu()
+        shortcut.addItem(disabled("Next sends: \(settings.dictationShortcut.name)"))
+        shortcut.addItem(item("Record Dictation Shortcut…", #selector(recordShortcut)))
+        shortcut.addItem(item("Reset to ⌘D", #selector(resetShortcut)))
+        advanced.addItem(submenu("Dictation Shortcut", shortcut))
 
         let apps = NSMenu()
         apps.addItem(disabled("Only active in:"))
@@ -376,14 +286,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         apps.addItem(item("Reset to Claude Desktop", #selector(resetTargetApps)))
         advanced.addItem(submenu("Apps", apps))
-
-        let input = NSMenu()
-        input.addItem(item("Spotlight Directly (Recommended)", #selector(useSpotlightInput), on: settings.inputMode == .spotlight))
-        input.addItem(item("Keystrokes (Logi Options+ Remap)", #selector(useKeystrokeInput), on: settings.inputMode == .keystrokes))
-        input.addItem(.separator())
-        input.addItem(item("Exclusive Access to Spotlight", #selector(toggleExclusive), on: settings.exclusiveAccess))
-        input.addItem(item("Open Bluetooth Settings…", #selector(openBluetooth)))
-        advanced.addItem(submenu("Clicker Input", input))
+        advanced.addItem(item("Open Bluetooth Settings…", #selector(openBluetooth)))
         return advanced
     }
 
@@ -421,23 +324,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Permissions.openInputMonitoringSettings()
     }
 
-    @objc private func learnButtons() {
-        learning = .voiceButton
-        startServices()
-    }
-
-    @objc private func cancelLearning() {
-        learning = .none
-        startServices()
-    }
-
-    @objc private func recordVoiceKey() {
-        learning = .voiceKey
+    @objc private func recordShortcut() {
+        recordingShortcut = true
         refreshIcon()
     }
 
-    @objc private func resetVoiceKey() {
-        settings.dictationShortcut = KeyShortcut(keyCode: 2, flags: .maskCommand)
+    @objc private func cancelRecording() {
+        recordingShortcut = false
+        refreshIcon()
+    }
+
+    @objc private func resetShortcut() {
+        settings.dictationShortcut = .commandD
     }
 
     @objc private func addTargetApp(_ sender: NSMenuItem) {
@@ -459,22 +357,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return FileManager.default.displayName(atPath: url.path)
         }
         return bundleID
-    }
-
-    @objc private func useSpotlightInput() {
-        settings.inputMode = .spotlight
-        startServices()
-    }
-
-    @objc private func useKeystrokeInput() {
-        settings.inputMode = .keystrokes
-        startServices()
-        if settings.voiceKey == nil || settings.submitKey == nil { learnButtons() }
-    }
-
-    @objc private func toggleExclusive() {
-        settings.exclusiveAccess.toggle()
-        if hid.isRunning { hid.start(seize: settings.exclusiveAccess) }
     }
 
     @objc private func openBluetooth() {

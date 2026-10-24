@@ -5,15 +5,14 @@ import os
 private let log = Logger(subsystem: "com.codehex.VoiceClicker", category: "hid")
 
 // IOReturn codes are function-like C macros, which Swift does not import.
-private let ioReturnError = IOReturn(bitPattern: 0xE00002BC)
 private let ioReturnNotPermitted = IOReturn(bitPattern: 0xE00002E2)
 
 /// Reads button presses straight from the Logitech Spotlight's HID interfaces.
 ///
-/// When possible the device is opened with exclusive ("seize") access, so the
-/// arrow keys it sends never reach the frontmost app. If that fails (for
-/// example because another app holds it), the device is opened shared and the
-/// app falls back to swallowing the matching key events with an event tap.
+/// Each interface is opened with exclusive ("seize") access when possible, so
+/// the arrow keys it sends never reach the frontmost app. If that fails (it
+/// does over Bluetooth, or when another app holds the device), it is opened
+/// shared and the app swallows the matching key events with an event tap.
 final class SpotlightHID {
     static let logitechVendorID = 0x046D
     /// 0xC53E: Spotlight USB receiver. 0xB503: Spotlight over Bluetooth.
@@ -25,21 +24,21 @@ final class SpotlightHID {
         let seized: Bool
     }
 
-    var onButton: ((HIDButton, Bool) -> Void)?
+    /// Called with the button, whether it went down, and whether the
+    /// interface it came from is held exclusively.
+    var onButton: ((_ button: SpotlightButton, _ pressed: Bool, _ seized: Bool) -> Void)?
     var onDevicesChanged: (() -> Void)?
 
     private(set) var devices: [Device] = []
     private(set) var isRunning = false
     private(set) var lastError: String?
     private var manager: IOHIDManager?
-    private var seize = true
 
     var isConnected: Bool { !devices.isEmpty }
     var allSeized: Bool { devices.allSatisfy(\.seized) }
 
-    func start(seize: Bool) {
+    func start() {
         stop()
-        self.seize = seize
         lastError = nil
         let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         self.manager = manager
@@ -83,23 +82,17 @@ final class SpotlightHID {
             return
         }
         // The receiver exposes several interfaces (keyboard, mouse, vendor
-        // HID++). Only take the ones that carry button presses, and leave the
+        // HID++). Only take the ones that can carry button presses, and leave the
         // HID++ interface alone so Logi Options+ can still talk to it.
         let isKeyboard = IOHIDDeviceConformsTo(device, UInt32(kHIDPage_GenericDesktop), UInt32(kHIDUsage_GD_Keyboard))
         let isConsumer = IOHIDDeviceConformsTo(device, UInt32(kHIDPage_Consumer), UInt32(kHIDUsage_Csmr_ConsumerControl))
         guard isKeyboard || isConsumer else { return }
         guard !devices.contains(where: { CFEqual($0.device, device) }) else { return }
 
-        var seized = false
-        var result = ioReturnError
-        if seize {
-            result = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeSeizeDevice))
-            seized = result == kIOReturnSuccess
-            if !seized {
-                log.warning("Exclusive open of \(product, privacy: .public) failed: \(String(format: "0x%08X", result), privacy: .public)")
-            }
-        }
+        var result = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeSeizeDevice))
+        let seized = result == kIOReturnSuccess
         if !seized {
+            log.warning("Exclusive open of \(product, privacy: .public) failed: \(String(format: "0x%08X", result), privacy: .public)")
             result = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone))
         }
         guard result == kIOReturnSuccess else {
@@ -133,20 +126,12 @@ final class SpotlightHID {
 
     private func handle(_ value: IOHIDValue) {
         let element = IOHIDValueGetElement(value)
-        let page = IOHIDElementGetUsagePage(element)
-        let usage = IOHIDElementGetUsage(element)
+        guard IOHIDElementGetUsagePage(element) == UInt32(kHIDPage_KeyboardOrKeypad),
+              let button = SpotlightButton(usage: IOHIDElementGetUsage(element)) else { return }
         let pressed = IOHIDValueGetIntegerValue(value) != 0
-
-        switch page {
-        case HIDButton.keyboardPage:
-            // 0x00-0x03 are "no event"/error codes; 0xE0+ are modifiers.
-            guard (0x04...0xDF).contains(usage) else { return }
-        case HIDButton.consumerPage:
-            guard usage != 0 else { return }
-        default:
-            return
-        }
-        onButton?(HIDButton(page: page, usage: usage), pressed)
+        let source = IOHIDElementGetDevice(element)
+        let seized = devices.first { CFEqual($0.device, source) }?.seized ?? false
+        onButton?(button, pressed, seized)
     }
 
     private func intProperty(_ device: IOHIDDevice, _ key: String) -> Int? {
