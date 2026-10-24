@@ -1,17 +1,21 @@
 APP := build/Voice Clicker.app
 
-.PHONY: app run install clean reset-permissions
+.PHONY: app run install quit clean reset-permissions
 
 app:
 	./scripts/build-app.sh
 
-run: app
+run: app quit
 	open "$(APP)"
 
-install: app
+install: app quit
 	rm -rf "/Applications/Voice Clicker.app"
 	cp -R "$(APP)" /Applications/
 	open "/Applications/Voice Clicker.app"
+
+quit:
+	osascript -e 'quit app id "com.codehex.VoiceClicker"' 2>/dev/null || true
+	@sleep 1
 
 reset-permissions:
 	tccutil reset Accessibility com.codehex.VoiceClicker || true
