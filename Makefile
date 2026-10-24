@@ -14,7 +14,7 @@ install: app quit
 	open "/Applications/Voice Clicker.app"
 
 quit:
-	osascript -e 'quit app id "com.codehex.VoiceClicker"' 2>/dev/null || true
+	pkill -x VoiceClicker || true
 	@sleep 1
 
 reset-permissions:
