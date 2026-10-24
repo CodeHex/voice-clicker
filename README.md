@@ -15,7 +15,7 @@ A small remote icon in the menu bar shows the app's state:
 | --- | --- |
 | Remote | On, Spotlight connected, ready |
 | Dimmed remote | Off, the Spotlight isn't connected, or a permission is missing (open the menu to see which) |
-| Remote with a red dot | The microphone is recording, i.e. Claude is listening |
+| Remote with a red dot | The microphone is recording (Claude is listening) |
 | 🟢 return arrow (flash) | You pressed Back |
 | 🔵 hand | Waiting for you to press a new dictation shortcut |
 
@@ -88,10 +88,6 @@ When you switch a permission on, System Settings may offer **Quit & Reopen**. Th
 - **Dictation Shortcut**: record a different shortcut for Next to send, or reset it to ⌘D.
 - **Apps**: the apps the buttons act in, the Claude desktop app (`com.anthropic.claudefordesktop`) by default. Bring another app to the front, open the menu, and choose **Add …** to include it. Click an app in the list to remove it.
 - **Open Bluetooth Settings…**
-
-## Using it with more than one Mac
-
-Each Mac needs its own copy of Voice Clicker and its own permissions. Each copy only reacts to clicks that reach its Mac. The simplest way to switch is to move the USB receiver; over Bluetooth, re-pair (hold the top and bottom buttons for about 3 seconds) when you switch.
 
 ## Troubleshooting
 

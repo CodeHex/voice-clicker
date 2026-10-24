@@ -186,7 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private static let iconSize = NSSize(width: 22, height: 18)
 
-    /// The menu bar image, with a small red dot while dictating. Every state
+    /// The menu bar image, with a small red dot while the mic is recording. Every state
     /// is drawn on the same canvas so the icon never changes size.
     private static func icon(_ symbol: String, listeningDot: Bool) -> NSImage? {
         let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
