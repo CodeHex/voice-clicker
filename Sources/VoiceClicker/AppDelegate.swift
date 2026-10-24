@@ -11,13 +11,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     /// True while waiting for the user to press a new dictation shortcut.
     private var recordingShortcut = false
-    private var dictatingSince: Date?
-    /// The app only knows what it sent, so stop showing the dictating dot
-    /// after two minutes in case dictation ended on its own.
-    private var dictating: Bool {
-        get { dictatingSince.map { Date().timeIntervalSince($0) < 120 } ?? false }
-        set { dictatingSince = newValue ? Date() : nil }
-    }
+    /// Whether the microphone is recording, polled so the dot follows
+    /// Claude's actual dictation state.
+    private var micInUse = false
     /// True for a moment after Back, while the icon flashes a return arrow.
     private var flashingEnter = false
     private var flashGeneration = 0
@@ -57,6 +53,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Permissions are granted in System Settings while we run; pick them up.
         Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             self?.startServices()
+        }
+        Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            let inUse = Microphone.isInUse
+            if inUse != self.micInUse {
+                self.micInUse = inUse
+                self.refreshIcon()
+            }
         }
         refreshIcon()
     }
@@ -125,15 +129,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func triggerVoice() {
         let shortcut = settings.dictationShortcut
         Actions.press(shortcut)
-        dictating.toggle()
-        lastAction = "Sent \(shortcut.name) (\(dictating ? "start" : "stop")) to \(Actions.frontmostAppName)"
-        refreshIcon()
+        lastAction = "Sent \(shortcut.name) to \(Actions.frontmostAppName)"
     }
 
     /// Presses Enter, exactly like the key on the keyboard.
     private func triggerSubmit() {
         flashEnter()
-        dictating = false
         Actions.press(keyCode: Actions.returnKey)
         lastAction = "Sent Enter to \(Actions.frontmostAppName)"
         refreshIcon()
@@ -169,7 +170,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             symbol = "hand.point.up.left.fill"
             tint = .systemBlue
         } else {
-            listeningDot = isReady && dictating
+            listeningDot = isReady && micInUse
         }
         button.image = Self.icon(symbol, listeningDot: listeningDot)
         button.contentTintColor = tint

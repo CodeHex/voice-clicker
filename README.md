@@ -15,7 +15,7 @@ A small remote icon in the menu bar shows the app's state:
 | --- | --- |
 | Remote | On, Spotlight connected, ready |
 | Dimmed remote | Off, the Spotlight isn't connected, or a permission is missing (open the menu to see which) |
-| Remote with a red dot | Dictating (Next pressed once) |
+| Remote with a red dot | The microphone is recording, i.e. Claude is listening |
 | 🟢 return arrow (flash) | You pressed Back |
 | 🔵 hand | Waiting for you to press a new dictation shortcut |
 
@@ -97,7 +97,7 @@ Each Mac needs its own copy of Voice Clicker and its own permissions. Each copy 
 
 - **Icon stays dimmed and the status says "waiting for Spotlight"**: press a button to wake it, and check it shows as connected in Bluetooth settings or the receiver is plugged in.
 - **Buttons do nothing in Claude**: check the status says On and that **Apps** (under Advanced) lists Claude.
-- **The red dot doesn't match Claude**: the app only knows what it sent. If dictation stopped by itself, press Next once to resync. The dot also clears itself after two minutes.
+- **The red dot is on but Claude isn't listening**: the dot shows when any app is using the microphone (a call, for example), not just Claude.
 - **Arrow keys still reach Claude**: another app (often Logi Options+) is holding the device. Quit it.
 - **Logs**: `log stream --predicate 'subsystem == "com.codehex.VoiceClicker"' --info`. The app logs every status change (with its permission state) and every Spotlight interface it opens.
 
