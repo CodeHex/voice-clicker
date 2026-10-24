@@ -43,23 +43,19 @@ final class Settings {
         set { encode(newValue, "submitKey") }
     }
 
-    /// The key bound to `voice:pushToTalk` in Claude Code (Space unless rebound).
-    /// With `/voice tap`, one press starts recording and the next stops it.
-    var claudeVoiceKey: KeyShortcut {
-        get { decode("claudeVoiceKey") ?? KeyShortcut(keyCode: 49, flags: []) }
-        set { encode(newValue, "claudeVoiceKey") }
+    static let claudeDesktopBundleID = "com.anthropic.claudefordesktop"
+
+    /// The shortcut Next sends to start and stop dictation (⌘D by default).
+    var dictationShortcut: KeyShortcut {
+        get { decode("dictationShortcut") ?? KeyShortcut(keyCode: 2, flags: .maskCommand) }
+        set { encode(newValue, "dictationShortcut") }
     }
 
-    var stopRecordingBeforeSubmit: Bool {
-        get { defaults.object(forKey: "stopRecordingBeforeSubmit") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "stopRecordingBeforeSubmit") }
-    }
-
-    /// Seconds to wait after stopping a recording before pressing Return, so
-    /// the transcript lands in the prompt.
-    var submitDelay: Double {
-        get { defaults.object(forKey: "submitDelay") as? Double ?? 1.0 }
-        set { defaults.set(newValue, forKey: "submitDelay") }
+    /// Apps the clicker drives. With anything else in front, the clicker's
+    /// keys pass through untouched so it still works as a presenter.
+    var targetBundleIDs: [String] {
+        get { defaults.stringArray(forKey: "targetBundleIDs") ?? [Self.claudeDesktopBundleID] }
+        set { defaults.set(newValue, forKey: "targetBundleIDs") }
     }
 
     var exclusiveAccess: Bool {

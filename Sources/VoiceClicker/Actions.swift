@@ -11,6 +11,10 @@ enum Actions {
         NSWorkspace.shared.frontmostApplication?.localizedName ?? "the frontmost app"
     }
 
+    static var frontmostBundleID: String? {
+        NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+    }
+
     static func press(_ shortcut: KeyShortcut) {
         press(keyCode: CGKeyCode(shortcut.keyCode), flags: shortcut.flags)
     }

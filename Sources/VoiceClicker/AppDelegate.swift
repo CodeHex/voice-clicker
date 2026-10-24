@@ -83,14 +83,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func hidButton(_ button: HIDButton, pressed: Bool) {
         let isMapped = button == settings.voiceButton || button == settings.submitButton
         let learningButtons = learning == .voiceButton || learning == .submitButton
-        if !hid.allSeized, let code = button.keyCode, isMapped || learningButtons {
-            if pressed { heldKeyCodes.insert(code) } else { heldKeyCodes.remove(code) }
-            swallowUntil[code] = Date().addingTimeInterval(0.3)
+        let acting = learningButtons || (isMapped && settings.enabled && isTargetFrontmost)
+        if let code = button.keyCode {
+            if hid.allSeized {
+                // Exclusive access hides the clicker's keys from the system, so
+                // pass them on ourselves when another app is in front.
+                if pressed && !acting { Actions.press(keyCode: code) }
+            } else if pressed && acting {
+                heldKeyCodes.insert(code)
+                swallowUntil[code] = Date().addingTimeInterval(0.3)
+            } else if !pressed, heldKeyCodes.remove(code) != nil {
+                // Swallow the release of any press we swallowed.
+                swallowUntil[code] = Date().addingTimeInterval(0.3)
+            }
         }
         guard pressed else { return }
 
         if settings.inputMode == .spotlight, learnButton(button: button, key: nil) { return }
-        guard settings.inputMode == .spotlight, learning == .none, settings.enabled else { return }
+        guard settings.inputMode == .spotlight, learning == .none, settings.enabled, isTargetFrontmost else { return }
         if button == settings.voiceButton {
             triggerVoice()
         } else if button == settings.submitButton {
@@ -106,9 +116,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let shortcut = KeyShortcut(keyCode: code, flags: flags)
         if learning == .voiceKey {
             if isDown && !isRepeat {
-                settings.claudeVoiceKey = shortcut
+                settings.dictationShortcut = shortcut
                 learning = .none
-                lastAction = "Voice key set to \(shortcut.name)"
+                lastAction = "Dictation shortcut set to \(shortcut.name)"
                 refreshIcon()
             }
             return true
@@ -119,7 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if isDown && !isRepeat { _ = learnButton(button: nil, key: shortcut) }
             return true
         }
-        guard settings.enabled else { return false }
+        guard settings.enabled, isTargetFrontmost else { return false }
         if shortcut == settings.voiceKey {
             if isDown && !isRepeat { triggerVoice() }
             return true
@@ -160,32 +170,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Actions
 
-    /// Taps Claude Code's dictation key: starts a recording, or stops one.
+    /// Whether the clicker should act: one of the target apps is in front.
+    private var isTargetFrontmost: Bool {
+        guard let id = Actions.frontmostBundleID else { return false }
+        return settings.targetBundleIDs.contains(id)
+    }
+
+    /// Sends the dictation shortcut, which starts dictation or stops it.
     private func triggerVoice() {
         showFlash(.voice)
-        let key = settings.claudeVoiceKey
-        Actions.press(key)
+        let shortcut = settings.dictationShortcut
+        Actions.press(shortcut)
         dictating.toggle()
-        lastAction = "\(dictating ? "Started" : "Stopped") voice (\(key.name)) in \(Actions.frontmostAppName)"
+        lastAction = "Sent \(shortcut.name) (\(dictating ? "start" : "stop")) to \(Actions.frontmostAppName)"
         refreshIcon()
     }
 
+    /// Presses Enter, exactly like the key on the keyboard.
     private func triggerSubmit() {
         showFlash(.submit)
-        var delay = 0.0
-        // Stopping a tap-mode recording finalizes the transcript (and Claude
-        // Code sends it by itself when it's 3+ words). The Return then covers
-        // shorter transcripts and does nothing on an empty prompt.
-        if settings.stopRecordingBeforeSubmit && dictating {
-            Actions.press(settings.claudeVoiceKey)
-            delay = settings.submitDelay
-        }
         dictating = false
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            Actions.press(keyCode: Actions.returnKey)
-            self?.lastAction = "Pressed Return in \(Actions.frontmostAppName)"
-            self?.refreshIcon()
-        }
+        Actions.press(keyCode: Actions.returnKey)
+        lastAction = "Sent Enter to \(Actions.frontmostAppName)"
+        refreshIcon()
     }
 
     // MARK: - Status icon
@@ -251,7 +258,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         switch learning {
         case .voiceButton: return "Press the clicker button for VOICE…"
         case .submitButton: return "Press the clicker button for SUBMIT…"
-        case .voiceKey: return "Press Claude Code's voice key…"
+        case .voiceKey: return "Press the dictation shortcut…"
         case .none: break
         }
         if !Permissions.accessibility { return "Needs Accessibility permission" }
@@ -304,18 +311,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(.separator())
 
-        let voice = NSMenu()
-        voice.addItem(disabled("Voice key: \(settings.claudeVoiceKey.name) (Claude Code voice:pushToTalk)"))
-        voice.addItem(item("Record Voice Key…", #selector(recordVoiceKey)))
-        voice.addItem(item("Reset to Space", #selector(resetVoiceKey)))
-        voice.addItem(.separator())
-        voice.addItem(item("Stop Recording Before Return", #selector(toggleStopBeforeSubmit), on: settings.stopRecordingBeforeSubmit))
-        for delay in [0.5, 1.0, 2.0] {
-            let i = item("Wait \(delay)s Before Return", #selector(setSubmitDelay(_:)), on: settings.submitDelay == delay)
-            i.representedObject = delay
-            voice.addItem(i)
+        let actions = NSMenu()
+        actions.addItem(disabled("Next sends: \(settings.dictationShortcut.name)"))
+        actions.addItem(item("Record Dictation Shortcut…", #selector(recordVoiceKey)))
+        actions.addItem(item("Reset to ⌘D", #selector(resetVoiceKey)))
+        menu.addItem(submenu("Button Actions", actions))
+
+        let apps = NSMenu()
+        apps.addItem(disabled("Only active in:"))
+        for id in settings.targetBundleIDs {
+            let i = item(appName(for: id), #selector(removeTargetApp(_:)), on: true)
+            i.representedObject = id
+            i.toolTip = "\(id). Click to remove."
+            apps.addItem(i)
         }
-        menu.addItem(submenu("Claude Code Voice", voice))
+        apps.addItem(.separator())
+        if let front = NSWorkspace.shared.frontmostApplication, let id = front.bundleIdentifier,
+           id != Bundle.main.bundleIdentifier, !settings.targetBundleIDs.contains(id) {
+            let i = item("Add \(front.localizedName ?? id)", #selector(addTargetApp(_:)))
+            i.representedObject = id
+            apps.addItem(i)
+        }
+        apps.addItem(item("Reset to Claude Desktop", #selector(resetTargetApps)))
+        menu.addItem(submenu("Apps", apps))
 
         let input = NSMenu()
         input.addItem(item("Spotlight Directly (Recommended)", #selector(useSpotlightInput), on: settings.inputMode == .spotlight))
@@ -380,15 +398,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func resetVoiceKey() {
-        settings.claudeVoiceKey = KeyShortcut(keyCode: 49, flags: [])
+        settings.dictationShortcut = KeyShortcut(keyCode: 2, flags: .maskCommand)
     }
 
-    @objc private func toggleStopBeforeSubmit() {
-        settings.stopRecordingBeforeSubmit.toggle()
+    @objc private func addTargetApp(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        settings.targetBundleIDs.append(id)
     }
 
-    @objc private func setSubmitDelay(_ sender: NSMenuItem) {
-        if let delay = sender.representedObject as? Double { settings.submitDelay = delay }
+    @objc private func removeTargetApp(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        settings.targetBundleIDs.removeAll { $0 == id }
+    }
+
+    @objc private func resetTargetApps() {
+        settings.targetBundleIDs = [Settings.claudeDesktopBundleID]
+    }
+
+    private func appName(for bundleID: String) -> String {
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+            return FileManager.default.displayName(atPath: url.path)
+        }
+        return bundleID
     }
 
     @objc private func useSpotlightInput() {
