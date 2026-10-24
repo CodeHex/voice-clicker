@@ -18,7 +18,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let keyTap = KeyTap()
     private var statusItem: NSStatusItem!
     private var learning = Learning.none
-    private var dictating = false
+    private var dictatingSince: Date?
+    /// Claude Code ends a recording on its own after two minutes, so don't
+    /// believe we're still dictating after that.
+    private var dictating: Bool {
+        get { dictatingSince.map { Date().timeIntervalSince($0) < 120 } ?? false }
+        set { dictatingSince = newValue ? Date() : nil }
+    }
     private var flash: Flash?
     private var flashGeneration = 0
     private var lastAction = "None yet"
@@ -158,6 +164,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func triggerVoice() {
         showFlash(.voice)
         switch settings.voiceMethod {
+        case .claudeCode:
+            let key = settings.claudeVoiceKey
+            Actions.press(key)
+            dictating.toggle()
+            lastAction = dictating
+                ? "Pressed \(key.name): Claude Code voice started"
+                : "Pressed \(key.name): Claude Code voice stopped"
         case .dictationMenu:
             if let stop = Dictation.menuItem(.stop), Dictation.press(stop) {
                 dictating = false
@@ -187,6 +200,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var delay = 0.0
         if settings.stopDictationBeforeSubmit {
             switch settings.voiceMethod {
+            case .claudeCode:
+                // Stopping a tap-mode recording finalizes the transcript (and
+                // submits it when it's 3+ words); Return then covers short
+                // transcripts and is harmless on an empty prompt.
+                if dictating {
+                    Actions.press(settings.claudeVoiceKey)
+                    delay = settings.submitDelay
+                }
             case .dictationMenu:
                 if let stop = Dictation.menuItem(.stop), Dictation.press(stop) { delay = settings.submitDelay }
             case .shortcut:
@@ -321,6 +342,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
 
         let voice = NSMenu()
+        voice.addItem(item("Claude Code Voice (\(settings.claudeVoiceKey.name), /voice tap)", #selector(useClaudeCode), on: settings.voiceMethod == .claudeCode))
         voice.addItem(item("macOS Dictation (Edit menu)", #selector(useDictationMenu), on: settings.voiceMethod == .dictationMenu))
         let shortcutTitle = "Keyboard Shortcut: \(settings.voiceShortcut?.name ?? "none")"
         voice.addItem(item(shortcutTitle, #selector(useShortcut), on: settings.voiceMethod == .shortcut))
@@ -392,6 +414,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func cancelLearning() {
         learning = .none
         startServices()
+    }
+
+    @objc private func useClaudeCode() {
+        settings.voiceMethod = .claudeCode
     }
 
     @objc private func useDictationMenu() {

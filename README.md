@@ -4,8 +4,8 @@ A small macOS menu bar app that turns a **Logitech Spotlight** presentation clic
 
 | Clicker button | What happens |
 | --- | --- |
-| **Next** (the big middle button) | Starts macOS Dictation in the frontmost app. Press again to stop. |
-| **Back** (the bottom button) | Stops dictation if it's running, waits a moment for the last words to land, then presses **Return** to submit the prompt. |
+| **Next** (the big middle button) | Starts Claude Code's voice dictation by tapping its voice key (Space). Press again to stop. |
+| **Back** (the bottom button) | Stops dictation if it's running, waits a moment for the transcript to land, then presses **Return** to submit the prompt. |
 
 You can swap these or use different buttons with **Learn Buttons…** in the menu.
 
@@ -85,23 +85,28 @@ When you switch a permission on, System Settings may offer **Quit & Reopen**. Th
 
 **Rebuilt the app and it stopped working?** The build script signs with your Apple Development certificate if you have one, and otherwise ad-hoc with a signature pinned to the bundle ID, so grants should survive rebuilds. If a permission still looks on but the menu says it's missing, an older build's entry is probably stale. Quit the app, run `make reset-permissions`, remove Voice Clicker from both lists with the minus button, reopen it and grant again.
 
-## 5. Turn on Dictation
+## 5. Turn on voice in Claude Code
 
-**System Settings → Keyboard → Dictation → On.** The first time you dictate, macOS may ask to allow the microphone.
+Run `/voice tap` in Claude Code (see below). This is only needed if you switch the voice action to *macOS Dictation*: then also turn on **System Settings → Keyboard → Dictation**.
 
 ## Using it with Claude Code
 
-1. Run `claude` in Terminal, iTerm2, Ghostty, the VS Code terminal, or any app with an **Edit → Start Dictation** menu item.
-2. Keep that window in front. Press **Next** and talk. Your words appear in Claude Code's prompt.
-3. Press **Back** to stop dictation and submit.
+Claude Code has its own voice dictation ([docs](https://code.claude.com/docs/en/voice-dictation)), and Voice Clicker drives it by default. It needs a claude.ai sign-in and microphone access for your terminal.
 
-Voice Clicker always acts on the frontmost app, so it also works anywhere else you can dictate.
+1. In Claude Code, run `/voice tap` once. It's remembered across sessions. Tap mode starts recording on one Space tap and stops on the next. Hold mode doesn't work with a clicker, because a terminal can't see a key being held.
+2. Keep the Claude Code window in front, with the prompt empty. Press **Next**. The footer shows `● REC · tap to send`. Speak.
+3. Press **Back**. Recording stops, and the prompt is sent. Claude Code sends 3+ word transcripts by itself, and the Return the app presses then covers shorter ones.
+
+If you rebound `voice:pushToTalk` in `~/.claude/keybindings.json`, the menu's **Voice Action** can be switched to *Keyboard Shortcut* with that key recorded instead.
+
+The other voice actions, *macOS Dictation* and *Keyboard Shortcut*, work in any app.
 
 ## Settings (in the menu)
 
 - **Learn Buttons…**: press the button for voice, then the one for submit.
 - **Voice Action**
-  - *macOS Dictation (Edit menu)* (default): presses Start/Stop Dictation through Accessibility, so there's no shortcut to configure. This relies on the English menu titles.
+  - *Claude Code Voice* (default): taps Space, Claude Code's voice key, in the frontmost window.
+  - *macOS Dictation (Edit menu)*: presses Start/Stop Dictation through Accessibility, so there's no shortcut to configure. This relies on the English menu titles.
   - *Keyboard Shortcut*: press a recorded shortcut instead. Use this if your Mac isn't in English, or to drive another voice tool such as Superwhisper or Wispr Flow. Set a custom Dictation shortcut in System Settings → Keyboard → Dictation, then **Record Shortcut…** and press it.
 - **Submit Action**: whether to stop dictation before Return, and how long to wait (0.2–2 s; use longer for tools that transcribe after you stop).
 - **Clicker Input**

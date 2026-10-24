@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 enum InputMode: String {
@@ -9,6 +10,9 @@ enum InputMode: String {
 }
 
 enum VoiceMethod: String {
+    /// Tap Claude Code's voice dictation key (Space by default). Needs
+    /// `/voice tap` in Claude Code: one tap starts recording, the next stops it.
+    case claudeCode
     /// Press "Start Dictation" / "Stop Dictation" in the frontmost app's Edit menu.
     case dictationMenu
     /// Press a recorded keyboard shortcut (your Dictation shortcut, or one for
@@ -31,7 +35,7 @@ final class Settings {
     }
 
     var voiceMethod: VoiceMethod {
-        get { defaults.string(forKey: "voiceMethod").flatMap(VoiceMethod.init) ?? .dictationMenu }
+        get { defaults.string(forKey: "voiceMethod").flatMap(VoiceMethod.init) ?? .claudeCode }
         set { defaults.set(newValue.rawValue, forKey: "voiceMethod") }
     }
 
@@ -60,6 +64,12 @@ final class Settings {
         set { encode(newValue, "voiceShortcut") }
     }
 
+    /// The key bound to `voice:pushToTalk` in Claude Code (Space unless rebound).
+    var claudeVoiceKey: KeyShortcut {
+        get { decode("claudeVoiceKey") ?? KeyShortcut(keyCode: 49, flags: []) }
+        set { encode(newValue, "claudeVoiceKey") }
+    }
+
     var stopDictationBeforeSubmit: Bool {
         get { defaults.object(forKey: "stopDictationBeforeSubmit") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "stopDictationBeforeSubmit") }
@@ -68,7 +78,7 @@ final class Settings {
     /// Seconds to wait after stopping dictation before pressing Return, so the
     /// last words land in the prompt.
     var submitDelay: Double {
-        get { defaults.object(forKey: "submitDelay") as? Double ?? 0.5 }
+        get { defaults.object(forKey: "submitDelay") as? Double ?? 1.0 }
         set { defaults.set(newValue, forKey: "submitDelay") }
     }
 
