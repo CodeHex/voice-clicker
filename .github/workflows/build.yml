@@ -1,0 +1,20 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build app bundle
+        run: ./scripts/build-app.sh
+      - name: Zip app
+        run: ditto -c -k --keepParent "build/Voice Clicker.app" "build/VoiceClicker.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VoiceClicker
+          path: build/VoiceClicker.zip
