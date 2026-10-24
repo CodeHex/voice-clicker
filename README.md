@@ -38,7 +38,7 @@ Pick **one** of these:
 
 **Option B: Bluetooth.**
 1. On the Mac, open **System Settings → Bluetooth** (the app's menu also has **Clicker Input → Open Bluetooth Settings…**).
-2. On the Spotlight, press and hold **Next** and **Back** together for about 3 seconds, until the light starts blinking. It's now in pairing mode.
+2. On the Spotlight, press and hold the **top** (pointer) and **bottom** (Back) buttons together for about 3 seconds, until the clicker vibrates. It stays in pairing mode for three minutes ([Logitech's steps](https://support.logi.com/hc/en-gb/articles/360023300194)).
 3. Click **Connect** next to **Spotlight** in the Bluetooth list.
 
 If the clicker doesn't appear, search for "Spotlight" on [Logitech support](https://support.logi.com) for your model's pairing steps.
