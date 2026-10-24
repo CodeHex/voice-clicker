@@ -106,4 +106,5 @@ Each Mac needs its own copy of Voice Clicker and its own permissions. Each copy 
 - `SpotlightHID.swift` uses IOKit's `IOHIDManager` to find the Spotlight (Logitech vendor `0x046D`; product `0xC53E` for the USB receiver, `0xB503` for Bluetooth, or any device named "Spotlight") and opens only its keyboard and consumer-control interfaces. It tries exclusive access first, so the arrow keys don't reach other apps; macOS refuses that over Bluetooth, so there it opens the device shared (the status line then says "shared access").
 - `KeyTap.swift` is a `CGEventTap` that records the dictation shortcut and, with shared access, swallows the Spotlight's arrow keys while Claude is in front.
 - `Actions.swift` posts ⌘D and Enter through `CGEvent`, and handles the permission checks.
+- `Microphone.swift` asks Core Audio whether the default microphone is recording, which drives the red dot.
 - `AppDelegate.swift` is the menu bar UI and the glue between them.
