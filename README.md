@@ -1,11 +1,11 @@
 # Voice Clicker
 
-A small macOS menu bar app that turns a **Logitech Spotlight** presentation clicker into a voice remote for Claude Code (or any other app):
+A small macOS menu bar app that turns a **Logitech Spotlight** presentation clicker into a voice remote for Claude Code's built-in voice dictation:
 
 | Clicker button | What happens |
 | --- | --- |
-| **Next** (the big middle button) | Starts Claude Code's voice dictation by tapping its voice key (Space). Press again to stop. |
-| **Back** (the bottom button) | Stops dictation if it's running, waits a moment for the transcript to land, then presses **Return** to submit the prompt. |
+| **Next** (the big middle button) | Presses Claude Code's voice dictation key (Space) to start recording. Press again to stop. |
+| **Back** (the bottom button) | Presses **Enter** to submit the prompt. If a recording is running, it stops it first and waits a moment for the transcript. |
 
 You can swap these or use different buttons with **Learn Buttons…** in the menu.
 
@@ -17,7 +17,7 @@ A microphone icon in the menu bar shows the app's state:
 | `mic.slash` | Off, the Spotlight isn't connected, or a permission is missing (open the menu to see which) |
 | 🟠 filled mic (flash) | You pressed the voice button |
 | 🟢 return arrow (flash) | You pressed the submit button |
-| 🔴 filled mic | Dictation is running |
+| 🔴 filled mic | Recording (Next pressed once) |
 | 🔵 hand | Waiting for you to press a button while learning |
 
 Click the icon for status, the last action, settings, and **Turn Off / Turn On**.
@@ -79,7 +79,7 @@ On first launch macOS asks for two permissions. Turn **Voice Clicker** on in bot
 | Permission | Why |
 | --- | --- |
 | **Input Monitoring** | Read button presses from the Spotlight. |
-| **Accessibility** | Press Start/Stop Dictation in the Edit menu, press Return, and listen for keystrokes. |
+| **Accessibility** | Send the voice key and Enter to Claude Code, and keep the clicker's own arrow keys out of your terminal. |
 
 When you switch a permission on, System Settings may offer **Quit & Reopen**. That briefly quits and restarts the app, which is expected and isn't a crash. The app also checks every couple of seconds and picks the permissions up without a restart. If the menu says a permission is still missing, use **Grant Accessibility…** / **Grant Input Monitoring…** from the menu.
 
@@ -87,28 +87,25 @@ When you switch a permission on, System Settings may offer **Quit & Reopen**. Th
 
 ## 5. Turn on voice in Claude Code
 
-Run `/voice tap` in Claude Code (see below). This is only needed if you switch the voice action to *macOS Dictation*: then also turn on **System Settings → Keyboard → Dictation**.
+Claude Code has its own voice dictation ([docs](https://code.claude.com/docs/en/voice-dictation)). It needs a claude.ai sign-in and microphone access for your terminal app.
 
-## Using it with Claude Code
+In Claude Code, run **`/voice tap`** once. It's remembered across sessions. Tap mode starts recording on one tap of the voice key and stops on the next. The default hold mode can't be driven by a clicker, because a terminal only sees a key as held through key-repeat.
 
-Claude Code has its own voice dictation ([docs](https://code.claude.com/docs/en/voice-dictation)), and Voice Clicker drives it by default. It needs a claude.ai sign-in and microphone access for your terminal.
+## Using it
 
-1. In Claude Code, run `/voice tap` once. It's remembered across sessions. Tap mode starts recording on one Space tap and stops on the next. Hold mode doesn't work with a clicker, because a terminal can't see a key being held.
-2. Keep the Claude Code window in front, with the prompt empty. Press **Next**. The footer shows `● REC · tap to send`. Speak.
-3. Press **Back**. Recording stops, and the prompt is sent. Claude Code sends 3+ word transcripts by itself, and the Return the app presses then covers shorter ones.
+1. Keep the Claude Code window in front, with the prompt empty. (Space only starts recording on an empty prompt.)
+2. Press **Next**. The footer shows `● REC · tap to send`. Speak.
+3. Press **Back** to submit. Claude Code sends transcripts of 3+ words by itself when recording stops, and the app's Enter covers shorter ones.
 
-If you rebound `voice:pushToTalk` in `~/.claude/keybindings.json`, the menu's **Voice Action** can be switched to *Keyboard Shortcut* with that key recorded instead.
-
-The other voice actions, *macOS Dictation* and *Keyboard Shortcut*, work in any app.
+If you've rebound `voice:pushToTalk` in `~/.claude/keybindings.json`, use **Claude Code Voice → Record Voice Key…** in the menu and press your key.
 
 ## Settings (in the menu)
 
 - **Learn Buttons…**: press the button for voice, then the one for submit.
-- **Voice Action**
-  - *Claude Code Voice* (default): taps Space, Claude Code's voice key, in the frontmost window.
-  - *macOS Dictation (Edit menu)*: presses Start/Stop Dictation through Accessibility, so there's no shortcut to configure. This relies on the English menu titles.
-  - *Keyboard Shortcut*: press a recorded shortcut instead. Use this if your Mac isn't in English, or to drive another voice tool such as Superwhisper or Wispr Flow. Set a custom Dictation shortcut in System Settings → Keyboard → Dictation, then **Record Shortcut…** and press it.
-- **Submit Action**: whether to stop dictation before Return, and how long to wait (0.2–2 s; use longer for tools that transcribe after you stop).
+- **Claude Code Voice**
+  - *Record Voice Key… / Reset to Space*: the key Next sends. This must match Claude Code's `voice:pushToTalk` binding.
+  - *Stop Recording Before Return*: if a recording is running when you press Back, stop it first. On by default.
+  - *Wait … Before Return*: how long to let the transcript land before Enter (0.5–2 s, default 1 s).
 - **Clicker Input**
   - *Spotlight Directly*: read the device over HID (default).
   - *Keystrokes*: react to keys from any keyboard (for Options+ remaps).
@@ -118,13 +115,14 @@ The other voice actions, *macOS Dictation* and *Keyboard Shortcut*, work in any 
 ## Troubleshooting
 
 - **Icon shows `mic.slash` and the status says "waiting for Spotlight"**: press a button to wake it, and check it shows as connected in Bluetooth settings or the receiver is plugged in.
-- **"No Start Dictation menu item in …"**: that app has no Dictation menu item (or it's greyed out because no text field is focused). Click into the terminal window, or switch to *Keyboard Shortcut*.
+- **Next types a space instead of recording**: voice isn't on in tap mode (run `/voice tap`), or the prompt wasn't empty.
+- **The red icon doesn't match Claude Code**: the app only knows what it sent. If Claude Code stopped recording itself (15 s of silence), press Next once to resync.
 - **Arrow keys still move the cursor**: another app (often Logi Options+) holds the device. See section 2.
 - **Logs**: `log stream --predicate 'subsystem == "com.codehex.VoiceClicker"' --info`. The app logs every status change (with its permission state) and every Spotlight it opens.
 
 ## How it works
 
 - `SpotlightHID.swift` uses IOKit's `IOHIDManager` to find the Spotlight (Logitech vendor `0x046D`; product `0xC53E` for the USB receiver, `0xB503` for Bluetooth, or any device named "Spotlight") and opens only its keyboard and consumer-control interfaces, exclusively when possible.
-- `KeyTap.swift` is a `CGEventTap` for recording shortcuts, keystroke mode, and swallowing Spotlight keys when exclusive access isn't available.
-- `Actions.swift` presses the Dictation menu items through the Accessibility API and posts Return through `CGEvent`.
+- `KeyTap.swift` is a `CGEventTap` for recording the voice key, keystroke mode, and swallowing Spotlight keys when exclusive access isn't available.
+- `Actions.swift` posts the voice key and Return through `CGEvent`, and handles the permission checks.
 - `AppDelegate.swift` is the menu bar UI and the glue between them.

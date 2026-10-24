@@ -9,17 +9,6 @@ enum InputMode: String {
     case keystrokes
 }
 
-enum VoiceMethod: String {
-    /// Tap Claude Code's voice dictation key (Space by default). Needs
-    /// `/voice tap` in Claude Code: one tap starts recording, the next stops it.
-    case claudeCode
-    /// Press "Start Dictation" / "Stop Dictation" in the frontmost app's Edit menu.
-    case dictationMenu
-    /// Press a recorded keyboard shortcut (your Dictation shortcut, or one for
-    /// a tool such as Superwhisper or Wispr Flow).
-    case shortcut
-}
-
 final class Settings {
     static let shared = Settings()
     private let defaults = UserDefaults.standard
@@ -32,11 +21,6 @@ final class Settings {
     var inputMode: InputMode {
         get { defaults.string(forKey: "inputMode").flatMap(InputMode.init) ?? .spotlight }
         set { defaults.set(newValue.rawValue, forKey: "inputMode") }
-    }
-
-    var voiceMethod: VoiceMethod {
-        get { defaults.string(forKey: "voiceMethod").flatMap(VoiceMethod.init) ?? .claudeCode }
-        set { defaults.set(newValue.rawValue, forKey: "voiceMethod") }
     }
 
     var voiceButton: HIDButton {
@@ -59,24 +43,20 @@ final class Settings {
         set { encode(newValue, "submitKey") }
     }
 
-    var voiceShortcut: KeyShortcut? {
-        get { decode("voiceShortcut") }
-        set { encode(newValue, "voiceShortcut") }
-    }
-
     /// The key bound to `voice:pushToTalk` in Claude Code (Space unless rebound).
+    /// With `/voice tap`, one press starts recording and the next stops it.
     var claudeVoiceKey: KeyShortcut {
         get { decode("claudeVoiceKey") ?? KeyShortcut(keyCode: 49, flags: []) }
         set { encode(newValue, "claudeVoiceKey") }
     }
 
-    var stopDictationBeforeSubmit: Bool {
-        get { defaults.object(forKey: "stopDictationBeforeSubmit") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "stopDictationBeforeSubmit") }
+    var stopRecordingBeforeSubmit: Bool {
+        get { defaults.object(forKey: "stopRecordingBeforeSubmit") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "stopRecordingBeforeSubmit") }
     }
 
-    /// Seconds to wait after stopping dictation before pressing Return, so the
-    /// last words land in the prompt.
+    /// Seconds to wait after stopping a recording before pressing Return, so
+    /// the transcript lands in the prompt.
     var submitDelay: Double {
         get { defaults.object(forKey: "submitDelay") as? Double ?? 1.0 }
         set { defaults.set(newValue, forKey: "submitDelay") }

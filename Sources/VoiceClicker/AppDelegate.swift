@@ -6,7 +6,7 @@ private let log = Logger(subsystem: "com.codehex.VoiceClicker", category: "app")
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private enum Learning {
-        case none, voiceButton, submitButton, voiceShortcut
+        case none, voiceButton, submitButton, voiceKey
     }
 
     private enum Flash {
@@ -104,12 +104,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let until = swallowUntil[code], until > Date() { return true }
 
         let shortcut = KeyShortcut(keyCode: code, flags: flags)
-        if learning == .voiceShortcut {
+        if learning == .voiceKey {
             if isDown && !isRepeat {
-                settings.voiceShortcut = shortcut
-                settings.voiceMethod = .shortcut
+                settings.claudeVoiceKey = shortcut
                 learning = .none
-                lastAction = "Recorded voice shortcut \(shortcut.name)"
+                lastAction = "Voice key set to \(shortcut.name)"
                 refreshIcon()
             }
             return true
@@ -152,7 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             learning = .none
             lastAction = "Submit button set to \(button?.name ?? key?.name ?? "?")"
             startServices()
-        case .none, .voiceShortcut:
+        case .none, .voiceKey:
             return false
         }
         refreshIcon()
@@ -161,66 +160,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Actions
 
+    /// Taps Claude Code's dictation key: starts a recording, or stops one.
     private func triggerVoice() {
         showFlash(.voice)
-        switch settings.voiceMethod {
-        case .claudeCode:
-            let key = settings.claudeVoiceKey
-            Actions.press(key)
-            dictating.toggle()
-            lastAction = dictating
-                ? "Pressed \(key.name): Claude Code voice started"
-                : "Pressed \(key.name): Claude Code voice stopped"
-        case .dictationMenu:
-            if let stop = Dictation.menuItem(.stop), Dictation.press(stop) {
-                dictating = false
-                lastAction = "Stopped dictation in \(Dictation.frontmostAppName)"
-            } else if let start = Dictation.menuItem(.start), Dictation.press(start) {
-                dictating = true
-                lastAction = "Started dictation in \(Dictation.frontmostAppName)"
-            } else {
-                NSSound.beep()
-                lastAction = "No Start Dictation menu item in \(Dictation.frontmostAppName)"
-            }
-        case .shortcut:
-            guard let shortcut = settings.voiceShortcut else {
-                NSSound.beep()
-                lastAction = "No voice shortcut recorded yet"
-                break
-            }
-            Actions.press(shortcut)
-            dictating.toggle()
-            lastAction = "Pressed \(shortcut.name)"
-        }
+        let key = settings.claudeVoiceKey
+        Actions.press(key)
+        dictating.toggle()
+        lastAction = "\(dictating ? "Started" : "Stopped") voice (\(key.name)) in \(Actions.frontmostAppName)"
         refreshIcon()
     }
 
     private func triggerSubmit() {
         showFlash(.submit)
         var delay = 0.0
-        if settings.stopDictationBeforeSubmit {
-            switch settings.voiceMethod {
-            case .claudeCode:
-                // Stopping a tap-mode recording finalizes the transcript (and
-                // submits it when it's 3+ words); Return then covers short
-                // transcripts and is harmless on an empty prompt.
-                if dictating {
-                    Actions.press(settings.claudeVoiceKey)
-                    delay = settings.submitDelay
-                }
-            case .dictationMenu:
-                if let stop = Dictation.menuItem(.stop), Dictation.press(stop) { delay = settings.submitDelay }
-            case .shortcut:
-                if dictating, let shortcut = settings.voiceShortcut {
-                    Actions.press(shortcut)
-                    delay = settings.submitDelay
-                }
-            }
+        // Stopping a tap-mode recording finalizes the transcript (and Claude
+        // Code sends it by itself when it's 3+ words). The Return then covers
+        // shorter transcripts and does nothing on an empty prompt.
+        if settings.stopRecordingBeforeSubmit && dictating {
+            Actions.press(settings.claudeVoiceKey)
+            delay = settings.submitDelay
         }
         dictating = false
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             Actions.press(keyCode: Actions.returnKey)
-            self?.lastAction = "Submitted (Return) in \(Dictation.frontmostAppName)"
+            self?.lastAction = "Pressed Return in \(Actions.frontmostAppName)"
             self?.refreshIcon()
         }
     }
@@ -258,7 +221,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case (.submit?, _):
             symbol = "return"
             tint = .systemGreen
-        case (nil, .voiceButton), (nil, .submitButton), (nil, .voiceShortcut):
+        case (nil, .voiceButton), (nil, .submitButton), (nil, .voiceKey):
             symbol = "hand.point.up.left.fill"
             tint = .systemBlue
         case (nil, .none):
@@ -288,7 +251,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         switch learning {
         case .voiceButton: return "Press the clicker button for VOICE…"
         case .submitButton: return "Press the clicker button for SUBMIT…"
-        case .voiceShortcut: return "Press your dictation shortcut…"
+        case .voiceKey: return "Press Claude Code's voice key…"
         case .none: break
         }
         if !Permissions.accessibility { return "Needs Accessibility permission" }
@@ -342,22 +305,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
 
         let voice = NSMenu()
-        voice.addItem(item("Claude Code Voice (\(settings.claudeVoiceKey.name), /voice tap)", #selector(useClaudeCode), on: settings.voiceMethod == .claudeCode))
-        voice.addItem(item("macOS Dictation (Edit menu)", #selector(useDictationMenu), on: settings.voiceMethod == .dictationMenu))
-        let shortcutTitle = "Keyboard Shortcut: \(settings.voiceShortcut?.name ?? "none")"
-        voice.addItem(item(shortcutTitle, #selector(useShortcut), on: settings.voiceMethod == .shortcut))
-        voice.addItem(item("Record Shortcut…", #selector(recordShortcut)))
-        menu.addItem(submenu("Voice Action", voice))
-
-        let submit = NSMenu()
-        submit.addItem(item("Stop Dictation Before Return", #selector(toggleStopBeforeSubmit), on: settings.stopDictationBeforeSubmit))
-        submit.addItem(.separator())
-        for delay in [0.2, 0.5, 1.0, 2.0] {
+        voice.addItem(disabled("Voice key: \(settings.claudeVoiceKey.name) (Claude Code voice:pushToTalk)"))
+        voice.addItem(item("Record Voice Key…", #selector(recordVoiceKey)))
+        voice.addItem(item("Reset to Space", #selector(resetVoiceKey)))
+        voice.addItem(.separator())
+        voice.addItem(item("Stop Recording Before Return", #selector(toggleStopBeforeSubmit), on: settings.stopRecordingBeforeSubmit))
+        for delay in [0.5, 1.0, 2.0] {
             let i = item("Wait \(delay)s Before Return", #selector(setSubmitDelay(_:)), on: settings.submitDelay == delay)
             i.representedObject = delay
-            submit.addItem(i)
+            voice.addItem(i)
         }
-        menu.addItem(submenu("Submit Action", submit))
+        menu.addItem(submenu("Claude Code Voice", voice))
 
         let input = NSMenu()
         input.addItem(item("Spotlight Directly (Recommended)", #selector(useSpotlightInput), on: settings.inputMode == .spotlight))
@@ -416,29 +374,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         startServices()
     }
 
-    @objc private func useClaudeCode() {
-        settings.voiceMethod = .claudeCode
-    }
-
-    @objc private func useDictationMenu() {
-        settings.voiceMethod = .dictationMenu
-    }
-
-    @objc private func useShortcut() {
-        if settings.voiceShortcut == nil {
-            recordShortcut()
-        } else {
-            settings.voiceMethod = .shortcut
-        }
-    }
-
-    @objc private func recordShortcut() {
-        learning = .voiceShortcut
+    @objc private func recordVoiceKey() {
+        learning = .voiceKey
         refreshIcon()
     }
 
+    @objc private func resetVoiceKey() {
+        settings.claudeVoiceKey = KeyShortcut(keyCode: 49, flags: [])
+    }
+
     @objc private func toggleStopBeforeSubmit() {
-        settings.stopDictationBeforeSubmit.toggle()
+        settings.stopRecordingBeforeSubmit.toggle()
     }
 
     @objc private func setSubmitDelay(_ sender: NSMenuItem) {
