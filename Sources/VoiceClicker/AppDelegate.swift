@@ -18,7 +18,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         get { dictatingSince.map { Date().timeIntervalSince($0) < 120 } ?? false }
         set { dictatingSince = newValue ? Date() : nil }
     }
-    private var flash: SpotlightButton?
+    /// True for a moment after Back, while the icon flashes a return arrow.
+    private var flashingEnter = false
     private var flashGeneration = 0
     private var lastAction = "None yet"
     private var hadInputMonitoring = Permissions.inputMonitoring
@@ -131,7 +132,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Presses Enter, exactly like the key on the keyboard.
     private func triggerSubmit() {
-        showFlash(.back)
+        flashEnter()
         dictating = false
         Actions.press(keyCode: Actions.returnKey)
         lastAction = "Sent Enter to \(Actions.frontmostAppName)"
@@ -144,14 +145,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settings.enabled && Permissions.accessibility && hid.isConnected
     }
 
-    private func showFlash(_ kind: SpotlightButton) {
-        flash = kind
+    private func flashEnter() {
+        flashingEnter = true
         flashGeneration += 1
         let generation = flashGeneration
         refreshIcon()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
             guard let self, self.flashGeneration == generation else { return }
-            self.flash = nil
+            self.flashingEnter = false
             self.refreshIcon()
         }
     }
@@ -161,22 +162,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var symbol = "av.remote"
         var tint: NSColor?
         var listeningDot = false
-        switch flash {
-        case .next?:
-            listeningDot = dictating
-        case .back?:
+        if flashingEnter {
             symbol = "return"
             tint = .systemGreen
-        case nil where recordingShortcut:
+        } else if recordingShortcut {
             symbol = "hand.point.up.left.fill"
             tint = .systemBlue
-        case nil:
+        } else {
             listeningDot = isReady && dictating
         }
         button.image = Self.icon(symbol, listeningDot: listeningDot)
         button.contentTintColor = tint
         // Dimmed when off, disconnected or missing a permission.
-        button.appearsDisabled = !isReady && flash == nil && !recordingShortcut
+        button.appearsDisabled = !isReady && !flashingEnter && !recordingShortcut
         let status = statusLine
         button.toolTip = "Voice Clicker: \(status)"
         if status != loggedStatus {
