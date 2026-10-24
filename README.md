@@ -102,7 +102,7 @@ When you switch a permission on, System Settings may offer **Quit & Reopen**. Th
 - **Clicker Input**
   - *Spotlight Directly*: read the device over HID (default).
   - *Keystrokes*: react to keys from any keyboard (for Options+ remaps).
-  - *Exclusive Access to Spotlight*: on by default, so the clicker's arrow keys don't also move the cursor in your terminal. If another app holds the device, Voice Clicker falls back to shared access and swallows those keys itself; the status line then says "shared access".
+  - *Exclusive Access to Spotlight*: on by default, so the clicker's arrow keys don't also reach Claude. If macOS refuses it (it does over Bluetooth), Voice Clicker falls back to shared access and swallows those keys itself; the status line then says "shared access".
 - **Launch at Login**: works when the app runs from `/Applications`.
 
 ## Troubleshooting
