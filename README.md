@@ -83,8 +83,7 @@ On first launch macOS asks for two permissions. Turn **Voice Clicker** on in bot
 
 When you switch a permission on, System Settings may offer **Quit & Reopen**. That briefly quits and restarts the app, which is expected and isn't a crash. The app also checks every couple of seconds and picks the permissions up without a restart. If the menu says a permission is still missing, use **Grant Accessibility…** / **Grant Input Monitoring…** from the menu.
 
-**Rebuilt the app and it stopped working?** The build is ad-hoc signed, so macOS treats each rebuild as a new app. Remove Voice Clicker from both lists (or run `make reset-permissions`) and grant again. To avoid this, sign with your Apple Development certificate:
-`CODESIGN_IDENTITY="Apple Development: Your Name (TEAMID)" make install`.
+**Rebuilt the app and it stopped working?** The build script signs with your Apple Development certificate if you have one, and otherwise ad-hoc with a signature pinned to the bundle ID, so grants should survive rebuilds. If a permission still looks on but the menu says it's missing, an older build's entry is probably stale. Quit the app, run `make reset-permissions`, remove Voice Clicker from both lists with the minus button, reopen it and grant again.
 
 ## 5. Turn on Dictation
 
