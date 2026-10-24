@@ -16,7 +16,6 @@ A small remote icon in the menu bar shows the app's state:
 | Remote | On, Spotlight connected, ready |
 | Dimmed remote | Off, the Spotlight isn't connected, or a permission is missing (open the menu to see which) |
 | Remote with a red dot | Dictating (Next pressed once) |
-| 🟠 filled remote (flash) | You pressed Next |
 | 🟢 return arrow (flash) | You pressed Back |
 | 🔵 hand | Waiting for you to press a new dictation shortcut |
 

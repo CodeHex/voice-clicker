@@ -33,7 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // A fixed width, so swapping icons never makes the menu bar relayout.
+        statusItem = NSStatusBar.system.statusItem(withLength: Self.iconSize.width + 6)
         // Remember where the icon was ⌘-dragged to in the menu bar.
         statusItem.autosaveName = "VoiceClicker"
         let menu = NSMenu()
@@ -121,7 +122,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Sends the dictation shortcut, which starts dictation or stops it.
     private func triggerVoice() {
-        showFlash(.next)
         let shortcut = settings.dictationShortcut
         Actions.press(shortcut)
         dictating.toggle()
@@ -163,8 +163,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var listeningDot = false
         switch flash {
         case .next?:
-            symbol = "av.remote.fill"
-            tint = .systemOrange
+            listeningDot = dictating
         case .back?:
             symbol = "return"
             tint = .systemGreen
@@ -186,35 +185,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// The menu bar image, with a small red dot while dictating.
+    private static let iconSize = NSSize(width: 22, height: 18)
+
+    /// The menu bar image, with a small red dot while dictating. Every state
+    /// is drawn on the same canvas so the icon never changes size.
     private static func icon(_ symbol: String, listeningDot: Bool) -> NSImage? {
         let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
         guard let base = (NSImage(systemSymbolName: symbol, accessibilityDescription: "Voice Clicker")
-            ?? NSImage(systemSymbolName: "dot.radiowaves.left.and.right", accessibilityDescription: "Voice Clicker"))?
+            ?? NSImage(systemSymbolName: "av.remote", accessibilityDescription: "Voice Clicker"))?
             .withSymbolConfiguration(config) else { return nil }
-        guard listeningDot else {
-            base.isTemplate = true
-            return base
-        }
-        // A template image can't carry colour, so tint the glyph to the menu
-        // bar's text colour ourselves and add the red dot.
-        let size = NSSize(width: base.size.width + 4, height: max(base.size.height, 16))
-        let image = NSImage(size: size, flipped: false) { rect in
+        let image = NSImage(size: iconSize, flipped: false) { rect in
+            let glyphRect = NSRect(x: (rect.width - base.size.width) / 2, y: (rect.height - base.size.height) / 2,
+                                   width: base.size.width, height: base.size.height)
+            guard listeningDot else {
+                base.draw(in: glyphRect)
+                return true
+            }
+            // A template image can't carry colour, so tint the glyph to the
+            // menu bar's text colour ourselves and add the red dot.
             let glyph = NSImage(size: base.size, flipped: false) { r in
                 base.draw(in: r)
                 NSColor.labelColor.set()
                 r.fill(using: .sourceAtop)
                 return true
             }
-            glyph.draw(in: NSRect(x: 0, y: (rect.height - base.size.height) / 2,
-                                  width: base.size.width, height: base.size.height))
+            glyph.draw(in: glyphRect)
             let d: CGFloat = 7
-            let dot = NSRect(x: rect.width - d, y: rect.height - d, width: d, height: d)
             NSColor.systemRed.setFill()
-            NSBezierPath(ovalIn: dot).fill()
+            NSBezierPath(ovalIn: NSRect(x: rect.width - d, y: rect.height - d, width: d, height: d)).fill()
             return true
         }
-        image.isTemplate = false
+        image.isTemplate = !listeningDot
+        image.accessibilityDescription = "Voice Clicker"
         return image
     }
 
