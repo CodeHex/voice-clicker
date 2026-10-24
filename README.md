@@ -81,7 +81,7 @@ On first launch macOS asks for two permissions. Turn **Voice Clicker** on in bot
 | **Input Monitoring** | Read button presses from the Spotlight. |
 | **Accessibility** | Press Start/Stop Dictation in the Edit menu, press Return, and listen for keystrokes. |
 
-The app checks every couple of seconds and picks the permissions up without a restart. If the menu says a permission is still missing, use **Grant Accessibility…** / **Grant Input Monitoring…** from the menu.
+When you switch a permission on, System Settings may offer **Quit & Reopen**. That briefly quits and restarts the app, which is expected and isn't a crash. The app also checks every couple of seconds and picks the permissions up without a restart. If the menu says a permission is still missing, use **Grant Accessibility…** / **Grant Input Monitoring…** from the menu.
 
 **Rebuilt the app and it stopped working?** The build is ad-hoc signed, so macOS treats each rebuild as a new app. Remove Voice Clicker from both lists (or run `make reset-permissions`) and grant again. To avoid this, sign with your Apple Development certificate:
 `CODESIGN_IDENTITY="Apple Development: Your Name (TEAMID)" make install`.
@@ -116,7 +116,7 @@ Voice Clicker always acts on the frontmost app, so it also works anywhere else y
 - **Icon shows `mic.slash` and the status says "waiting for Spotlight"**: press a button to wake it, and check it shows as connected in Bluetooth settings or the receiver is plugged in.
 - **"No Start Dictation menu item in …"**: that app has no Dictation menu item (or it's greyed out because no text field is focused). Click into the terminal window, or switch to *Keyboard Shortcut*.
 - **Arrow keys still move the cursor**: another app (often Logi Options+) holds the device. See section 2.
-- **Logs**: `log stream --predicate 'subsystem == "com.codehex.VoiceClicker"'`.
+- **Logs**: `log stream --predicate 'subsystem == "com.codehex.VoiceClicker"' --info`. The app logs every status change (with its permission state) and every Spotlight it opens.
 
 ## How it works
 

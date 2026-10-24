@@ -1,5 +1,8 @@
 import AppKit
 import ServiceManagement
+import os
+
+private let log = Logger(subsystem: "com.codehex.VoiceClicker", category: "app")
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private enum Learning {
@@ -20,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var flashGeneration = 0
     private var lastAction = "None yet"
     private var hadInputMonitoring = Permissions.inputMonitoring
+    private var loggedStatus = ""
 
     // When the Spotlight can't be opened exclusively, its keys also reach the
     // system, so we swallow them in the event tap while (or just after) the
@@ -250,7 +254,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         image?.isTemplate = true
         button.image = image
         button.contentTintColor = tint
-        button.toolTip = "Voice Clicker: \(statusLine)"
+        let status = statusLine
+        button.toolTip = "Voice Clicker: \(status)"
+        if status != loggedStatus {
+            loggedStatus = status
+            log.info("Status: \(status, privacy: .public) (accessibility: \(Permissions.accessibility), input monitoring: \(Permissions.inputMonitoring))")
+        }
     }
 
     private var statusLine: String {
