@@ -215,14 +215,16 @@ private final class HIDPPBattery {
         let charging: Bool
         if feature.id == 0x1004 {
             // A GetStatus reply (function 1) or a status event (software ID 0):
-            // state of charge, level flags, charging status.
+            // state of charge, level flags, charging status (1 charging,
+            // 2 charging slowly, 3 full).
             guard function == 1 || softwareID == 0 else { return }
             percent = Int(params[0])
-            charging = params[2] == 1 || params[2] == 2
+            charging = (1...3).contains(params[2])
         } else {
-            // Discharge level, next level, status (0 means discharging).
+            // Discharge level, next level, status (0 discharging, 1 to 4 on
+            // the charger, 5 and up a battery or charging error).
             percent = Int(params[0])
-            charging = params[2] != 0
+            charging = (1...4).contains(params[2])
         }
         guard (1...100).contains(percent) else { return }
         log.info("HID++ \(String(format: "0x%04X", feature.id), privacy: .public) reply: \(params.prefix(4).map { String($0) }.joined(separator: " "), privacy: .public)")

@@ -33,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // A fixed width, so swapping icons never makes the menu bar relayout.
         // It only grows to fit the battery level.
-        statusItem = NSStatusBar.system.statusItem(withLength: Self.iconSize.width + 6)
+        statusItem = NSStatusBar.system.statusItem(withLength: StatusIcon.size.width + 6)
         // Remember where the icon was ⌘-dragged to in the menu bar.
         statusItem.autosaveName = "VoiceClicker"
         let menu = NSMenu()
@@ -120,6 +120,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if recordingShortcut {
             if isDown && !isRepeat {
                 let shortcut = KeyShortcut(keyCode: code, flags: flags)
+                // Escape on its own cancels, like in any shortcut field.
+                if shortcut == KeyShortcut(keyCode: Self.escapeKey, flags: []) {
+                    recordingShortcut = false
+                    refreshIcon()
+                    return true
+                }
                 settings.dictationShortcut = shortcut
                 recordingShortcut = false
                 lastAction = "Dictation shortcut set to \(shortcut.name)"
@@ -129,6 +135,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         return false
     }
+
+    private static let escapeKey: CGKeyCode = 53
 
     // MARK: - Actions
 
@@ -185,7 +193,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             listeningDot = isReady && micInUse
         }
-        button.image = Self.icon(symbol, listeningDot: listeningDot)
+        button.image = StatusIcon.image(symbol, listeningDot: listeningDot)
         button.contentTintColor = tint
         showBattery(on: button)
         // Dimmed when off, disconnected or missing a permission.
@@ -197,8 +205,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             log.info("Status: \(status, privacy: .public) (accessibility: \(Permissions.accessibility), input monitoring: \(Permissions.inputMonitoring))")
         }
     }
-
-    private static let iconSize = NSSize(width: 22, height: 18)
 
     /// The battery percentage beside the icon while the Spotlight is connected.
     private var batteryText: String? {
@@ -212,45 +218,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         button.font = font
         button.title = text
         button.imagePosition = text.isEmpty ? .imageOnly : .imageLeading
-        var length = Self.iconSize.width + 6
+        var length = StatusIcon.size.width + 6
         if !text.isEmpty {
             // Sized for "100%" so the width doesn't change as the level drops.
             length += ("100%" as NSString).size(withAttributes: [.font: font]).width + 4
         }
         if statusItem.length != length { statusItem.length = length }
-    }
-
-    /// The menu bar image, with a small red dot while the mic is recording. Every state
-    /// is drawn on the same canvas so the icon never changes size.
-    private static func icon(_ symbol: String, listeningDot: Bool) -> NSImage? {
-        let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
-        guard let base = (NSImage(systemSymbolName: symbol, accessibilityDescription: "Voice Clicker")
-            ?? NSImage(systemSymbolName: "av.remote", accessibilityDescription: "Voice Clicker"))?
-            .withSymbolConfiguration(config) else { return nil }
-        let image = NSImage(size: iconSize, flipped: false) { rect in
-            let glyphRect = NSRect(x: (rect.width - base.size.width) / 2, y: (rect.height - base.size.height) / 2,
-                                   width: base.size.width, height: base.size.height)
-            guard listeningDot else {
-                base.draw(in: glyphRect)
-                return true
-            }
-            // A template image can't carry colour, so tint the glyph to the
-            // menu bar's text colour ourselves and add the red dot.
-            let glyph = NSImage(size: base.size, flipped: false) { r in
-                base.draw(in: r)
-                NSColor.labelColor.set()
-                r.fill(using: .sourceAtop)
-                return true
-            }
-            glyph.draw(in: glyphRect)
-            let d: CGFloat = 7
-            NSColor.systemRed.setFill()
-            NSBezierPath(ovalIn: NSRect(x: rect.width - d, y: rect.height - d, width: d, height: d)).fill()
-            return true
-        }
-        image.isTemplate = !listeningDot
-        image.accessibilityDescription = "Voice Clicker"
-        return image
     }
 
     private var statusLine: String {

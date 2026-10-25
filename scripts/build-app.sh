@@ -26,6 +26,10 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 
 VERSION="${VERSION:-$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null | sed 's/^v//' || true)}"
 if [[ -n "$VERSION" ]]; then
+  if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "VERSION must look like 1.2.3, got '$VERSION'" >&2
+    exit 1
+  fi
   /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
 fi
 if [[ -n "${BUILD_NUMBER:-}" ]]; then
