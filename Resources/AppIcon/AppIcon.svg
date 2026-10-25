@@ -1,63 +1,257 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Rendered to AppIcon.png with Chromium; the rain uses half-width katakana,
+       so other renderers may pick a different font. -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#3B4CCA"/>
-      <stop offset="1" stop-color="#7B2FD0"/>
-    </linearGradient>
-    <radialGradient id="sheen" cx="0.3" cy="0.15" r="0.9">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
-      <stop offset="0.6" stop-color="#FFFFFF" stop-opacity="0"/>
+    <clipPath id="tile"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+    <radialGradient id="bg" cx="0.5" cy="0.45" r="0.75">
+      <stop offset="0" stop-color="#062414"/>
+      <stop offset="1" stop-color="#010604"/>
     </radialGradient>
     <linearGradient id="body" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#9AA0AC"/>
-      <stop offset="0.35" stop-color="#F2F4F7"/>
-      <stop offset="0.65" stop-color="#D5D9E0"/>
-      <stop offset="1" stop-color="#7D8390"/>
+      <stop offset="0" stop-color="#0B0F0D"/>
+      <stop offset="0.4" stop-color="#2A322E"/>
+      <stop offset="0.6" stop-color="#1A201D"/>
+      <stop offset="1" stop-color="#050706"/>
     </linearGradient>
-    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0" stop-color="#FFB46B" stop-opacity="0.9"/>
-      <stop offset="1" stop-color="#FF7A2E" stop-opacity="0"/>
+    <radialGradient id="core" cx="0.5" cy="0.4" r="0.6">
+      <stop offset="0" stop-color="#E9FFEE"/>
+      <stop offset="0.45" stop-color="#4DFF8C"/>
+      <stop offset="1" stop-color="#00B347"/>
     </radialGradient>
-    <linearGradient id="next" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFA552"/>
-      <stop offset="1" stop-color="#F0602A"/>
-    </linearGradient>
-    <linearGradient id="btn" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#4A4F5C"/>
-      <stop offset="1" stop-color="#23262E"/>
-    </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.35"/>
+    <pattern id="scan" width="6" height="6" patternUnits="userSpaceOnUse">
+      <rect width="6" height="2" fill="#000" fill-opacity="0.35"/>
+    </pattern>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="haze" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="45"/></filter>
+    <filter id="softglow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
     <filter id="iconShadow" x="-10%" y="-10%" width="120%" height="125%">
-      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.3"/>
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.45"/>
     </filter>
   </defs>
 
   <!-- macOS icon grid: 824pt rounded square centred on a 1024 canvas -->
-  <g filter="url(#iconShadow)">
-    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
-  </g>
-  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#sheen)"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)" filter="url(#iconShadow)"/>
 
-  <g transform="translate(455 590) rotate(32) scale(0.92)">
-    <!-- voice waves coming off the top of the clicker -->
-    <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-width="30">
-      <path d="M -62 -332 A 88 88 0 0 1 62 -332" stroke-opacity="0.95"/>
-      <path d="M -118 -380 A 165 165 0 0 1 118 -380" stroke-opacity="0.7"/>
-      <path d="M -172 -428 A 240 240 0 0 1 172 -428" stroke-opacity="0.45"/>
+  <g clip-path="url(#tile)">
+    <!-- digital rain -->
+    <g font-family="Unifont-JP, 'WenQuanYi Zen Hei', 'Hiragino Sans', monospace" font-size="36" text-anchor="middle" filter="url(#softglow)">
+      <text x="112" y="511" fill="#E6FFE9" fill-opacity="0.95">ﾊ</text>
+      <text x="112" y="473" fill="#19FF6A" fill-opacity="0.66">ﾚ</text>
+      <text x="112" y="435" fill="#19FF6A" fill-opacity="0.56">ｴ</text>
+      <text x="112" y="397" fill="#19FF6A" fill-opacity="0.47">ｵ</text>
+      <text x="112" y="359" fill="#19FF6A" fill-opacity="0.38">7</text>
+      <text x="112" y="321" fill="#19FF6A" fill-opacity="0.28">ﾓ</text>
+      <text x="112" y="283" fill="#19FF6A" fill-opacity="0.19">ｷ</text>
+      <text x="112" y="245" fill="#19FF6A" fill-opacity="0.09">ﾈ</text>
+      <text x="156" y="776" fill="#E6FFE9" fill-opacity="0.95">=</text>
+      <text x="156" y="738" fill="#19FF6A" fill-opacity="0.62">ﾑ</text>
+      <text x="156" y="700" fill="#19FF6A" fill-opacity="0.50">ｾ</text>
+      <text x="156" y="662" fill="#19FF6A" fill-opacity="0.38">ｳ</text>
+      <text x="156" y="624" fill="#19FF6A" fill-opacity="0.25">ｶ</text>
+      <text x="156" y="586" fill="#19FF6A" fill-opacity="0.12">ﾌ</text>
+      <text x="200" y="608" fill="#E6FFE9" fill-opacity="0.95">ﾀ</text>
+      <text x="200" y="570" fill="#19FF6A" fill-opacity="0.64">ｶ</text>
+      <text x="200" y="532" fill="#19FF6A" fill-opacity="0.54">ﾔ</text>
+      <text x="200" y="494" fill="#19FF6A" fill-opacity="0.43">ﾌ</text>
+      <text x="200" y="456" fill="#19FF6A" fill-opacity="0.32">ｴ</text>
+      <text x="200" y="418" fill="#19FF6A" fill-opacity="0.21">7</text>
+      <text x="200" y="380" fill="#19FF6A" fill-opacity="0.11">ﾕ</text>
+      <text x="244" y="306" fill="#E6FFE9" fill-opacity="0.95">ﾙ</text>
+      <text x="244" y="268" fill="#19FF6A" fill-opacity="0.67">ﾙ</text>
+      <text x="244" y="230" fill="#19FF6A" fill-opacity="0.58">ﾖ</text>
+      <text x="244" y="192" fill="#19FF6A" fill-opacity="0.50">+</text>
+      <text x="244" y="154" fill="#19FF6A" fill-opacity="0.42">ｴ</text>
+      <text x="288" y="770" fill="#E6FFE9" fill-opacity="0.95">ﾊ</text>
+      <text x="288" y="732" fill="#19FF6A" fill-opacity="0.70">ｴ</text>
+      <text x="288" y="694" fill="#19FF6A" fill-opacity="0.65">></text>
+      <text x="288" y="656" fill="#19FF6A" fill-opacity="0.60">ｿ</text>
+      <text x="288" y="618" fill="#19FF6A" fill-opacity="0.55">ｳ</text>
+      <text x="288" y="580" fill="#19FF6A" fill-opacity="0.50">ﾔ</text>
+      <text x="288" y="542" fill="#19FF6A" fill-opacity="0.45">9</text>
+      <text x="288" y="504" fill="#19FF6A" fill-opacity="0.40">ｹ</text>
+      <text x="288" y="466" fill="#19FF6A" fill-opacity="0.35">ﾃ</text>
+      <text x="288" y="428" fill="#19FF6A" fill-opacity="0.30">ﾋ</text>
+      <text x="288" y="390" fill="#19FF6A" fill-opacity="0.25">ｺ</text>
+      <text x="288" y="352" fill="#19FF6A" fill-opacity="0.20">ﾓ</text>
+      <text x="288" y="314" fill="#19FF6A" fill-opacity="0.15">ｸ</text>
+      <text x="288" y="276" fill="#19FF6A" fill-opacity="0.10">ﾕ</text>
+      <text x="288" y="238" fill="#19FF6A" fill-opacity="0.08">ﾄ</text>
+      <text x="332" y="753" fill="#E6FFE9" fill-opacity="0.95">ｼ</text>
+      <text x="332" y="715" fill="#19FF6A" fill-opacity="0.70">ｷ</text>
+      <text x="332" y="677" fill="#19FF6A" fill-opacity="0.66">ﾖ</text>
+      <text x="332" y="639" fill="#19FF6A" fill-opacity="0.61">ﾕ</text>
+      <text x="332" y="601" fill="#19FF6A" fill-opacity="0.56">ﾙ</text>
+      <text x="332" y="563" fill="#19FF6A" fill-opacity="0.52">ｽ</text>
+      <text x="332" y="525" fill="#19FF6A" fill-opacity="0.47">ﾈ</text>
+      <text x="332" y="487" fill="#19FF6A" fill-opacity="0.42">ｷ</text>
+      <text x="332" y="449" fill="#19FF6A" fill-opacity="0.38">ﾔ</text>
+      <text x="332" y="411" fill="#19FF6A" fill-opacity="0.33">0</text>
+      <text x="332" y="373" fill="#19FF6A" fill-opacity="0.28">ｵ</text>
+      <text x="332" y="335" fill="#19FF6A" fill-opacity="0.23">ﾕ</text>
+      <text x="332" y="297" fill="#19FF6A" fill-opacity="0.19">ｴ</text>
+      <text x="332" y="259" fill="#19FF6A" fill-opacity="0.14">ﾘ</text>
+      <text x="332" y="221" fill="#19FF6A" fill-opacity="0.09">ｾ</text>
+      <text x="332" y="183" fill="#19FF6A" fill-opacity="0.08">ﾐ</text>
+      <text x="376" y="876" fill="#E6FFE9" fill-opacity="0.95">ﾌ</text>
+      <text x="376" y="838" fill="#19FF6A" fill-opacity="0.70">4</text>
+      <text x="376" y="800" fill="#19FF6A" fill-opacity="0.64">ﾅ</text>
+      <text x="376" y="762" fill="#19FF6A" fill-opacity="0.59">ﾎ</text>
+      <text x="376" y="724" fill="#19FF6A" fill-opacity="0.54">ﾖ</text>
+      <text x="376" y="686" fill="#19FF6A" fill-opacity="0.48">*</text>
+      <text x="376" y="648" fill="#19FF6A" fill-opacity="0.43">ﾎ</text>
+      <text x="376" y="610" fill="#19FF6A" fill-opacity="0.38">ﾈ</text>
+      <text x="376" y="572" fill="#19FF6A" fill-opacity="0.32">ﾄ</text>
+      <text x="376" y="534" fill="#19FF6A" fill-opacity="0.27">ﾀ</text>
+      <text x="376" y="496" fill="#19FF6A" fill-opacity="0.21">5</text>
+      <text x="376" y="458" fill="#19FF6A" fill-opacity="0.16">ｼ</text>
+      <text x="376" y="420" fill="#19FF6A" fill-opacity="0.11">ﾝ</text>
+      <text x="376" y="382" fill="#19FF6A" fill-opacity="0.08">4</text>
+      <text x="420" y="429" fill="#E6FFE9" fill-opacity="0.95">ﾕ</text>
+      <text x="420" y="391" fill="#19FF6A" fill-opacity="0.64">ﾄ</text>
+      <text x="420" y="353" fill="#19FF6A" fill-opacity="0.54">ﾒ</text>
+      <text x="420" y="315" fill="#19FF6A" fill-opacity="0.43">ﾐ</text>
+      <text x="420" y="277" fill="#19FF6A" fill-opacity="0.32">:</text>
+      <text x="420" y="239" fill="#19FF6A" fill-opacity="0.21">ﾆ</text>
+      <text x="420" y="201" fill="#19FF6A" fill-opacity="0.11">1</text>
+      <text x="464" y="639" fill="#E6FFE9" fill-opacity="0.95">ﾗ</text>
+      <text x="464" y="601" fill="#19FF6A" fill-opacity="0.68">></text>
+      <text x="464" y="563" fill="#19FF6A" fill-opacity="0.60">ｵ</text>
+      <text x="464" y="525" fill="#19FF6A" fill-opacity="0.52">ｸ</text>
+      <text x="464" y="487" fill="#19FF6A" fill-opacity="0.45">ﾑ</text>
+      <text x="464" y="449" fill="#19FF6A" fill-opacity="0.38">ﾋ</text>
+      <text x="464" y="411" fill="#19FF6A" fill-opacity="0.30">ｻ</text>
+      <text x="464" y="373" fill="#19FF6A" fill-opacity="0.23">3</text>
+      <text x="464" y="335" fill="#19FF6A" fill-opacity="0.15">ﾆ</text>
+      <text x="464" y="297" fill="#19FF6A" fill-opacity="0.08">ｺ</text>
+      <text x="508" y="680" fill="#E6FFE9" fill-opacity="0.95">ｳ</text>
+      <text x="508" y="642" fill="#19FF6A" fill-opacity="0.69"><</text>
+      <text x="508" y="604" fill="#19FF6A" fill-opacity="0.62">ﾛ</text>
+      <text x="508" y="566" fill="#19FF6A" fill-opacity="0.56">ｵ</text>
+      <text x="508" y="528" fill="#19FF6A" fill-opacity="0.50">3</text>
+      <text x="508" y="490" fill="#19FF6A" fill-opacity="0.44">ﾔ</text>
+      <text x="508" y="452" fill="#19FF6A" fill-opacity="0.38">ﾕ</text>
+      <text x="508" y="414" fill="#19FF6A" fill-opacity="0.31">5</text>
+      <text x="508" y="376" fill="#19FF6A" fill-opacity="0.25">:</text>
+      <text x="508" y="338" fill="#19FF6A" fill-opacity="0.19">7</text>
+      <text x="508" y="300" fill="#19FF6A" fill-opacity="0.12">ﾅ</text>
+      <text x="508" y="262" fill="#19FF6A" fill-opacity="0.08">ﾆ</text>
+      <text x="552" y="891" fill="#E6FFE9" fill-opacity="0.95">ﾗ</text>
+      <text x="552" y="853" fill="#19FF6A" fill-opacity="0.68">ﾐ</text>
+      <text x="552" y="815" fill="#19FF6A" fill-opacity="0.61">ﾖ</text>
+      <text x="552" y="777" fill="#19FF6A" fill-opacity="0.55">6</text>
+      <text x="552" y="739" fill="#19FF6A" fill-opacity="0.48">ﾎ</text>
+      <text x="552" y="701" fill="#19FF6A" fill-opacity="0.41">ｵ</text>
+      <text x="552" y="663" fill="#19FF6A" fill-opacity="0.34">8</text>
+      <text x="552" y="625" fill="#19FF6A" fill-opacity="0.27">ｶ</text>
+      <text x="552" y="587" fill="#19FF6A" fill-opacity="0.20">+</text>
+      <text x="552" y="549" fill="#19FF6A" fill-opacity="0.14">ﾂ</text>
+      <text x="552" y="511" fill="#19FF6A" fill-opacity="0.08">ﾏ</text>
+      <text x="596" y="893" fill="#E6FFE9" fill-opacity="0.95">ｵ</text>
+      <text x="596" y="855" fill="#19FF6A" fill-opacity="0.70">ｴ</text>
+      <text x="596" y="817" fill="#19FF6A" fill-opacity="0.66">1</text>
+      <text x="596" y="779" fill="#19FF6A" fill-opacity="0.61">ﾝ</text>
+      <text x="596" y="741" fill="#19FF6A" fill-opacity="0.56">ﾄ</text>
+      <text x="596" y="703" fill="#19FF6A" fill-opacity="0.52">ﾚ</text>
+      <text x="596" y="665" fill="#19FF6A" fill-opacity="0.47">ﾕ</text>
+      <text x="596" y="627" fill="#19FF6A" fill-opacity="0.42">ﾜ</text>
+      <text x="596" y="589" fill="#19FF6A" fill-opacity="0.38">7</text>
+      <text x="596" y="551" fill="#19FF6A" fill-opacity="0.33">ﾍ</text>
+      <text x="596" y="513" fill="#19FF6A" fill-opacity="0.28">ﾃ</text>
+      <text x="596" y="475" fill="#19FF6A" fill-opacity="0.23">0</text>
+      <text x="596" y="437" fill="#19FF6A" fill-opacity="0.19">ﾉ</text>
+      <text x="596" y="399" fill="#19FF6A" fill-opacity="0.14">:</text>
+      <text x="596" y="361" fill="#19FF6A" fill-opacity="0.09">ﾛ</text>
+      <text x="596" y="323" fill="#19FF6A" fill-opacity="0.08">ﾇ</text>
+      <text x="640" y="203" fill="#E6FFE9" fill-opacity="0.95">ﾇ</text>
+      <text x="640" y="165" fill="#19FF6A" fill-opacity="0.69">ｻ</text>
+      <text x="640" y="127" fill="#19FF6A" fill-opacity="0.63">ﾘ</text>
+      <text x="684" y="299" fill="#E6FFE9" fill-opacity="0.95">ｴ</text>
+      <text x="684" y="261" fill="#19FF6A" fill-opacity="0.69">ｾ</text>
+      <text x="684" y="223" fill="#19FF6A" fill-opacity="0.63">4</text>
+      <text x="684" y="185" fill="#19FF6A" fill-opacity="0.58">ﾃ</text>
+      <text x="684" y="147" fill="#19FF6A" fill-opacity="0.52">ｹ</text>
+      <text x="728" y="936" fill="#E6FFE9" fill-opacity="0.95">ﾊ</text>
+      <text x="728" y="898" fill="#19FF6A" fill-opacity="0.67">ﾊ</text>
+      <text x="728" y="860" fill="#19FF6A" fill-opacity="0.58">=</text>
+      <text x="728" y="822" fill="#19FF6A" fill-opacity="0.50">Z</text>
+      <text x="728" y="784" fill="#19FF6A" fill-opacity="0.42">ﾐ</text>
+      <text x="728" y="746" fill="#19FF6A" fill-opacity="0.33">ｶ</text>
+      <text x="728" y="708" fill="#19FF6A" fill-opacity="0.25">ｻ</text>
+      <text x="728" y="670" fill="#19FF6A" fill-opacity="0.17">ﾍ</text>
+      <text x="728" y="632" fill="#19FF6A" fill-opacity="0.08">ﾊ</text>
+      <text x="772" y="742" fill="#E6FFE9" fill-opacity="0.95">:</text>
+      <text x="772" y="704" fill="#19FF6A" fill-opacity="0.68">ｹ</text>
+      <text x="772" y="666" fill="#19FF6A" fill-opacity="0.60">7</text>
+      <text x="772" y="628" fill="#19FF6A" fill-opacity="0.52">ﾌ</text>
+      <text x="772" y="590" fill="#19FF6A" fill-opacity="0.45">Z</text>
+      <text x="772" y="552" fill="#19FF6A" fill-opacity="0.38">ﾔ</text>
+      <text x="772" y="514" fill="#19FF6A" fill-opacity="0.30">ﾂ</text>
+      <text x="772" y="476" fill="#19FF6A" fill-opacity="0.23">0</text>
+      <text x="772" y="438" fill="#19FF6A" fill-opacity="0.15">ﾋ</text>
+      <text x="772" y="400" fill="#19FF6A" fill-opacity="0.08">ﾇ</text>
+      <text x="816" y="879" fill="#E6FFE9" fill-opacity="0.95"><</text>
+      <text x="816" y="841" fill="#19FF6A" fill-opacity="0.69">ｿ</text>
+      <text x="816" y="803" fill="#19FF6A" fill-opacity="0.62">ｺ</text>
+      <text x="816" y="765" fill="#19FF6A" fill-opacity="0.56">ｶ</text>
+      <text x="816" y="727" fill="#19FF6A" fill-opacity="0.50">ｼ</text>
+      <text x="816" y="689" fill="#19FF6A" fill-opacity="0.44">ｺ</text>
+      <text x="816" y="651" fill="#19FF6A" fill-opacity="0.38">ｿ</text>
+      <text x="816" y="613" fill="#19FF6A" fill-opacity="0.31">ﾛ</text>
+      <text x="816" y="575" fill="#19FF6A" fill-opacity="0.25">ｿ</text>
+      <text x="816" y="537" fill="#19FF6A" fill-opacity="0.19">ｱ</text>
+      <text x="816" y="499" fill="#19FF6A" fill-opacity="0.12">ﾐ</text>
+      <text x="816" y="461" fill="#19FF6A" fill-opacity="0.08">8</text>
+      <text x="860" y="783" fill="#E6FFE9" fill-opacity="0.95">ﾁ</text>
+      <text x="860" y="745" fill="#19FF6A" fill-opacity="0.66">ﾃ</text>
+      <text x="860" y="707" fill="#19FF6A" fill-opacity="0.56">ｱ</text>
+      <text x="860" y="669" fill="#19FF6A" fill-opacity="0.47">ｺ</text>
+      <text x="860" y="631" fill="#19FF6A" fill-opacity="0.38">ﾋ</text>
+      <text x="860" y="593" fill="#19FF6A" fill-opacity="0.28">ﾓ</text>
+      <text x="860" y="555" fill="#19FF6A" fill-opacity="0.19">ﾈ</text>
+      <text x="860" y="517" fill="#19FF6A" fill-opacity="0.09">ﾘ</text>
+      <text x="904" y="759" fill="#E6FFE9" fill-opacity="0.95">+</text>
+      <text x="904" y="721" fill="#19FF6A" fill-opacity="0.68">ｹ</text>
+      <text x="904" y="683" fill="#19FF6A" fill-opacity="0.61">ﾝ</text>
+      <text x="904" y="645" fill="#19FF6A" fill-opacity="0.55">9</text>
+      <text x="904" y="607" fill="#19FF6A" fill-opacity="0.48">ﾑ</text>
+      <text x="904" y="569" fill="#19FF6A" fill-opacity="0.41">+</text>
+      <text x="904" y="531" fill="#19FF6A" fill-opacity="0.34">ﾘ</text>
+      <text x="904" y="493" fill="#19FF6A" fill-opacity="0.27">ﾚ</text>
+      <text x="904" y="455" fill="#19FF6A" fill-opacity="0.20">ﾜ</text>
+      <text x="904" y="417" fill="#19FF6A" fill-opacity="0.14">2</text>
+      <text x="904" y="379" fill="#19FF6A" fill-opacity="0.08">ｴ</text>
     </g>
-    <!-- clicker -->
-    <rect x="-88" y="-290" width="176" height="580" rx="88" fill="url(#body)" filter="url(#shadow)"/>
-    <rect x="-88" y="-290" width="176" height="580" rx="88" fill="none" stroke="#FFFFFF" stroke-opacity="0.5" stroke-width="4"/>
-    <!-- pointer button -->
-    <circle cx="0" cy="-185" r="30" fill="url(#btn)"/>
-    <!-- next button, lit: it starts dictation -->
-    <circle cx="0" cy="-30" r="100" fill="url(#glow)"/>
-    <circle cx="0" cy="-30" r="58" fill="url(#next)"/>
-    <circle cx="0" cy="-30" r="58" fill="none" stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="4"/>
-    <!-- back button, sends Enter -->
-    <circle cx="0" cy="130" r="40" fill="url(#btn)"/>
-    <path transform="translate(0 130) rotate(-32)" d="M 15 -15 V 5 H -14 M -4 -5 L -14 5 L -4 15" fill="none" stroke="#C9CDD6" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- darken the rain behind the clicker so it reads -->
+    <ellipse cx="470" cy="580" rx="200" ry="360" transform="rotate(32 470 580)" fill="#010604" fill-opacity="0.8" filter="url(#haze)"/>
+
+    <g transform="translate(470 585) rotate(32) scale(0.9)">
+      <!-- signal waves -->
+      <g fill="none" stroke="#3DFF7F" stroke-linecap="butt" stroke-width="26" filter="url(#glow)">
+        <path d="M -62 -332 A 88 88 0 0 1 62 -332"/>
+        <path d="M -118 -380 A 165 165 0 0 1 118 -380" stroke-dasharray="40 14" stroke-opacity="0.8"/>
+        <path d="M -172 -428 A 240 240 0 0 1 172 -428" stroke-dasharray="22 16" stroke-opacity="0.55"/>
+      </g>
+      <!-- clicker -->
+      <rect x="-88" y="-290" width="176" height="580" rx="88" fill="url(#body)"/>
+      <rect x="-88" y="-290" width="176" height="580" rx="88" fill="none" stroke="#3DFF7F" stroke-width="6" filter="url(#glow)"/>
+      <rect x="-70" y="-272" width="140" height="544" rx="70" fill="none" stroke="#3DFF7F" stroke-opacity="0.18" stroke-width="2"/>
+      <!-- pointer button -->
+      <circle cx="0" cy="-185" r="28" fill="#070A08" stroke="#3DFF7F" stroke-opacity="0.7" stroke-width="4"/>
+      <!-- next button, lit: it starts dictation -->
+      <circle cx="0" cy="-30" r="60" fill="url(#core)" filter="url(#glow)"/>
+      <!-- back button, sends Enter -->
+      <circle cx="0" cy="130" r="40" fill="#070A08" stroke="#3DFF7F" stroke-opacity="0.7" stroke-width="4"/>
+      <path transform="translate(0 130) rotate(-32)" d="M 15 -15 V 5 H -14 M -4 -5 L -14 5 L -4 15" fill="none" stroke="#3DFF7F" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter" filter="url(#softglow)"/>
+    </g>
+
+    <!-- CRT scanlines -->
+    <rect x="100" y="100" width="824" height="824" fill="url(#scan)"/>
   </g>
+  <rect x="102" y="102" width="820" height="820" rx="183" fill="none" stroke="#3DFF7F" stroke-opacity="0.35" stroke-width="4"/>
 </svg>
