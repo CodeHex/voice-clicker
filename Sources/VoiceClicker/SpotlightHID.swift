@@ -28,6 +28,7 @@ final class SpotlightHID {
     /// interface it came from is held exclusively.
     var onButton: ((_ button: SpotlightButton, _ pressed: Bool, _ seized: Bool) -> Void)?
     var onDevicesChanged: (() -> Void)?
+    let battery = SpotlightBattery()
 
     private(set) var devices: [Device] = []
     private(set) var isRunning = false
@@ -67,6 +68,7 @@ final class SpotlightHID {
             IOHIDDeviceClose(d.device, IOOptionBits(kIOHIDOptionsTypeNone))
         }
         devices.removeAll()
+        battery.reset()
         if let manager {
             IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
         }
@@ -81,9 +83,14 @@ final class SpotlightHID {
         guard Self.spotlightProductIDs.contains(productID) || product.localizedCaseInsensitiveContains("spotlight") else {
             return
         }
+        let transport = stringProperty(device, kIOHIDTransportKey) ?? "?"
+        // The HID++ interface is opened shared, only to ask for the battery
+        // level, so Logi Options+ can still talk to it.
+        if SpotlightBattery.hasHIDPP(device) {
+            battery.attachHIDPP(device, bluetooth: transport.localizedCaseInsensitiveContains("bluetooth"))
+        }
         // The receiver exposes several interfaces (keyboard, mouse, vendor
-        // HID++). Only take the ones that can carry button presses, and leave the
-        // HID++ interface alone so Logi Options+ can still talk to it.
+        // HID++). Only take the ones that can carry button presses.
         let isKeyboard = IOHIDDeviceConformsTo(device, UInt32(kHIDPage_GenericDesktop), UInt32(kHIDUsage_GD_Keyboard))
         let isConsumer = IOHIDDeviceConformsTo(device, UInt32(kHIDPage_Consumer), UInt32(kHIDUsage_Csmr_ConsumerControl))
         guard isKeyboard || isConsumer else { return }
@@ -111,14 +118,15 @@ final class SpotlightHID {
         }, context)
         IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
 
-        let transport = stringProperty(device, kIOHIDTransportKey) ?? "?"
         devices.append(Device(device: device, name: "\(product) (\(transport))", seized: seized))
+        battery.attachRegistry(device)
         lastError = nil
         log.info("Opened \(product, privacy: .public) via \(transport, privacy: .public), exclusive: \(seized)")
         onDevicesChanged?()
     }
 
     private func deviceRemoved(_ device: IOHIDDevice) {
+        battery.detach(device)
         let before = devices.count
         devices.removeAll { CFEqual($0.device, device) }
         if devices.count != before { onDevicesChanged?() }

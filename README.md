@@ -14,12 +14,13 @@ A small remote icon in the menu bar shows the app's state:
 | Icon | Meaning |
 | --- | --- |
 | Remote | On, Spotlight connected, ready |
+| Remote with `80%` beside it | The Spotlight's battery level, shown while it's connected |
 | Dimmed remote | Off, the Spotlight isn't connected, or a permission is missing (open the menu to see which) |
 | Remote with a red dot | The microphone is recording (Claude is listening) |
 | 🟢 return arrow (flash) | You pressed Back |
 | 🔵 hand | Waiting for you to press a new dictation shortcut |
 
-The menu stays minimal: whether the app is running, **Turn Off / Turn On**, **Launch at Login** and **Quit**. Hold **Option** while you click the icon to see **Advanced** settings.
+The menu stays minimal: whether the app is running, the Spotlight's battery, **Turn Off / Turn On**, **Check for Updates…**, **Launch at Login** and **Quit**. Hold **Option** while you click the icon to see **Advanced** settings.
 
 If the icon vanishes when the menu bar gets crowded (on a MacBook with a notch, macOS hides the leftmost icons), hold **⌘** and drag the remote further right. The app remembers where you put it.
 
@@ -56,7 +57,7 @@ make install     # builds "Voice Clicker.app", copies it to /Applications and op
 
 Other targets: `make run` (build and open from `build/` without installing) and `make app` (build only).
 
-Or download a prebuilt `VoiceClicker.zip` from the latest [Build workflow run](https://github.com/CodeHex/voice-clicker/actions/workflows/build.yml) (under *Artifacts*), unzip it, move it to Applications, and since it isn't notarized, clear the download quarantine once:
+Or download `VoiceClicker.zip` from the [latest release](https://github.com/CodeHex/voice-clicker/releases/latest), unzip it, move it to Applications, and since it isn't notarized, clear the download quarantine once:
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/Voice Clicker.app"
@@ -74,6 +75,18 @@ On first launch macOS asks for two permissions. Turn **Voice Clicker** on in bot
 When you switch a permission on, System Settings may offer **Quit & Reopen**. That briefly restarts the app, which is expected. The app also checks every couple of seconds and picks the permissions up without a restart. If the menu says a permission is still missing, use **Grant Accessibility…** / **Grant Input Monitoring…** from the menu.
 
 **Rebuilt the app and it stopped working?** The build script signs with your Apple Development certificate if you have one, and otherwise ad-hoc with a signature pinned to the bundle ID, so grants should survive rebuilds. If a permission looks on but the menu says it's missing, an older build's entry is probably stale: quit the app, run `make reset-permissions`, remove Voice Clicker from both lists with the minus button, reopen it and grant again.
+
+## Updates
+
+When it starts, Voice Clicker checks [GitHub Releases](https://github.com/CodeHex/voice-clicker/releases) and, if there's a newer version, installs it and relaunches on its own. **Check for Updates…** in the menu does the same on demand, asking first. It only updates itself from `/Applications` (or `~/Applications`), so a build you run from `build/` is left alone.
+
+Releases are signed the same way as local builds (ad-hoc, pinned to the bundle ID), so Input Monitoring and Accessibility carry over. If you build locally with an Apple Development certificate, the first update from a release changes the signature and macOS asks for both permissions once more.
+
+To publish a release, tag a commit and push the tag. The Release workflow builds the app with that version and attaches the zip:
+
+```bash
+git tag v1.0.1 && git push origin v1.0.1
+```
 
 ## Using it
 
@@ -102,5 +115,7 @@ When you switch a permission on, System Settings may offer **Quit & Reopen**. Th
 - `SpotlightHID.swift` uses IOKit's `IOHIDManager` to find the Spotlight (Logitech vendor `0x046D`; product `0xC53E` for the USB receiver, `0xB503` for Bluetooth, or any device named "Spotlight") and opens only its keyboard and consumer-control interfaces. It tries exclusive access first, so the arrow keys don't reach other apps; macOS refuses that over Bluetooth, so there it opens the device shared (the status line then says "shared access").
 - `KeyTap.swift` is a `CGEventTap` that records the dictation shortcut and, with shared access, swallows the Spotlight's arrow keys while Claude is in front.
 - `Actions.swift` posts ⌘D and Enter through `CGEvent`, and handles the permission checks.
+- `Battery.swift` reads the Spotlight's battery: the `BatteryPercent` macOS publishes in the I/O Registry for Bluetooth devices if it's there, or else Logitech's HID++ protocol (Unified Battery `0x1004` or Battery Status `0x1000`) on the clicker's vendor interface, refreshed every minute.
+- `Updater.swift` checks the latest GitHub release, downloads the zip, checks its signature is pinned to our bundle ID, swaps it in once the app quits and reopens it.
 - `Microphone.swift` asks Core Audio whether the default microphone is recording, which drives the red dot.
 - `AppDelegate.swift` is the menu bar UI and the glue between them.
