@@ -80,6 +80,8 @@ When you switch a permission on, System Settings may offer **Quit & Reopen**. Th
 
 When it starts, Voice Clicker checks [GitHub Releases](https://github.com/CodeHex/voice-clicker/releases) and, if there's a newer version, installs it and relaunches on its own. **Check for Updates…** in the menu does the same on demand, asking first. It only updates itself from `/Applications` (or `~/Applications`), so a build you run from `build/` is left alone.
 
+Before installing, the app checks that the zip came from this repo's releases, that its SHA-256 matches the checksum GitHub lists for it, and that it holds Voice Clicker at the release's version with a signature pinned to our bundle ID.
+
 Releases are signed the same way as local builds (ad-hoc, pinned to the bundle ID), so Input Monitoring and Accessibility carry over. If you build locally with an Apple Development certificate, the first update from a release changes the signature and macOS asks for both permissions once more.
 
 To publish a release, tag a commit and push the tag. The Release workflow builds the app with that version and attaches the zip:
@@ -87,6 +89,11 @@ To publish a release, tag a commit and push the tag. The Release workflow builds
 ```bash
 git tag v1.0.1 && git push origin v1.0.1
 ```
+
+## Security notes
+
+- **Updates trust this repo's GitHub releases.** Releases are signed ad-hoc, so the signature check proves the bundle ID but not who built the app. Anyone who can push a `v*` tag (or replace a release asset) can ship code that inherits the app's permissions. Turning on GitHub's *immutable releases* for the repo stops assets being swapped after publishing.
+- **Ad-hoc grants are keyed to the bundle ID alone.** Pinning the signature to `com.codehex.VoiceClicker` is what lets permissions survive rebuilds and updates, but it also means any app ad-hoc signed with that ID gets Voice Clicker's Accessibility and Input Monitoring grants. Signing with a real certificate (set `CODESIGN_IDENTITY`, for releases too) closes that gap, at the cost of granting the permissions once more.
 
 ## Using it
 
@@ -98,7 +105,7 @@ git tag v1.0.1 && git push origin v1.0.1
 ## Advanced settings (hold Option and click the icon)
 
 - The full status line and the last action the app took.
-- **Dictation Shortcut**: record a different shortcut for Next to send, or reset it to ⌘D.
+- **Dictation Shortcut**: record a different shortcut for Next to send (Esc cancels), or reset it to ⌘D.
 - **Apps**: the apps the buttons act in, the Claude desktop app (`com.anthropic.claudefordesktop`) by default. Bring another app to the front, open the menu, and choose **Add …** to include it. Click an app in the list to remove it.
 - **Open Bluetooth Settings…**
 
@@ -116,6 +123,6 @@ git tag v1.0.1 && git push origin v1.0.1
 - `KeyTap.swift` is a `CGEventTap` that records the dictation shortcut and, with shared access, swallows the Spotlight's arrow keys while Claude is in front.
 - `Actions.swift` posts ⌘D and Enter through `CGEvent`, and handles the permission checks.
 - `Battery.swift` reads the Spotlight's battery: the `BatteryPercent` macOS publishes in the I/O Registry for Bluetooth devices if it's there, or else Logitech's HID++ protocol (Unified Battery `0x1004` or Battery Status `0x1000`) on the clicker's vendor interface, refreshed every minute.
-- `Updater.swift` checks the latest GitHub release, downloads the zip, checks its signature is pinned to our bundle ID, swaps it in once the app quits and reopens it.
+- `Updater.swift` checks the latest GitHub release, downloads the zip, checks its checksum, version and that its signature is pinned to our bundle ID, swaps it in once the app quits and reopens it.
 - `Microphone.swift` asks Core Audio whether the default microphone is recording, which drives the red dot.
-- `AppDelegate.swift` is the menu bar UI and the glue between them.
+- `StatusIcon.swift` draws the menu bar icon, and `AppDelegate.swift` is the menu and the glue between the rest.

@@ -1,20 +1,32 @@
 import AppKit
+import CryptoKit
 import os
 
 private let log = Logger(subsystem: "com.codehex.VoiceClicker", category: "updates")
 
 /// Checks GitHub Releases for a newer version and installs it in place.
 ///
-/// A release is a `vX.Y.Z` tag with a zipped `Voice Clicker.app` attached (the
-/// Release workflow makes these). The new app is only installed if its
-/// signature is pinned to our bundle ID, like the builds from
-/// `scripts/build-app.sh`, so macOS keeps the permissions it already granted.
+/// A release is a `vX.Y.Z` tag with `VoiceClicker.zip` attached, holding
+/// `Voice Clicker.app` (the Release workflow makes these). Before installing,
+/// the download must come from this repo's releases, match the SHA-256 GitHub
+/// lists for the asset, and unzip to our app at the release's version with a
+/// signature pinned to our bundle ID, so macOS keeps the permissions it
+/// already granted.
+///
+/// Releases are signed ad-hoc, so the signature check only proves the bundle
+/// ID, not who built it. What the update can be trusted for is that it came
+/// from this repo's GitHub releases over HTTPS.
+@MainActor
 final class Updater {
     static let repo = "CodeHex/voice-clicker"
+    static let assetName = "VoiceClicker.zip"
+    static let appName = "Voice Clicker.app"
 
     struct Release {
         let version: String
         let zipURL: URL
+        /// The asset's SHA-256, as GitHub reports it.
+        let sha256: String
         let pageURL: URL
     }
 
@@ -24,7 +36,7 @@ final class Updater {
 
     private(set) var state = State.idle
 
-    static var currentVersion: String {
+    nonisolated static var currentVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
     }
 
@@ -50,27 +62,23 @@ final class Updater {
         state = .checking
         Task {
             do {
-                let release = try await latestRelease()
+                let release = try await Self.latestRelease()
                 let newer = Self.compare(release.version, Self.currentVersion) == .orderedDescending
                 log.info("Latest release \(release.version, privacy: .public), running \(Self.currentVersion, privacy: .public)")
-                await MainActor.run {
-                    state = .idle
-                    if !newer {
-                        if interactive { upToDateAlert() }
-                    } else if !interactive {
-                        guard Self.canAutoInstall, lastAutoInstall != release.version else { return }
-                        lastAutoInstall = release.version
-                        install(release)
-                    } else if confirmInstall(release) {
-                        install(release)
-                    }
+                state = .idle
+                if !newer {
+                    if interactive { upToDateAlert() }
+                } else if !interactive {
+                    guard Self.canAutoInstall, lastAutoInstall != release.version else { return }
+                    lastAutoInstall = release.version
+                    install(release)
+                } else if confirmInstall(release) {
+                    install(release)
                 }
             } catch {
                 log.error("Update check failed: \(error.localizedDescription, privacy: .public)")
-                await MainActor.run {
-                    state = .failed(error.localizedDescription)
-                    if interactive { errorAlert("Couldn't check for updates", error) }
-                }
+                state = .failed(error.localizedDescription)
+                if interactive { errorAlert("Couldn't check for updates", error) }
             }
         }
     }
@@ -82,7 +90,7 @@ final class Updater {
 
     // MARK: - GitHub
 
-    private func latestRelease() async throws -> Release {
+    private nonisolated static func latestRelease() async throws -> Release {
         var request = URLRequest(url: URL(string: "https://api.github.com/repos/\(Self.repo)/releases/latest")!)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.cachePolicy = .reloadIgnoringLocalCacheData
@@ -91,18 +99,27 @@ final class Updater {
         if status == 404 { throw UpdateError("No releases have been published yet.") }
         guard status == 200 else { throw UpdateError("GitHub answered with HTTP \(status).") }
 
-        struct Asset: Decodable { let name: String; let browser_download_url: URL }
+        struct Asset: Decodable { let name: String; let browser_download_url: URL; let digest: String? }
         struct Payload: Decodable { let tag_name: String; let html_url: URL; let assets: [Asset] }
         let payload = try JSONDecoder().decode(Payload.self, from: data)
-        guard let zip = payload.assets.first(where: { $0.name.hasSuffix(".zip") }) else {
-            throw UpdateError("Release \(payload.tag_name) has no .zip attached.")
+        guard let zip = payload.assets.first(where: { $0.name == assetName }) else {
+            throw UpdateError("Release \(payload.tag_name) has no \(assetName) attached.")
+        }
+        // Only download from this repo's own release assets.
+        guard zip.browser_download_url.absoluteString
+            .hasPrefix("https://github.com/\(repo)/releases/download/") else {
+            throw UpdateError("Release \(payload.tag_name) links to an unexpected download.")
+        }
+        guard let digest = zip.digest, digest.hasPrefix("sha256:") else {
+            throw UpdateError("Release \(payload.tag_name) has no checksum for \(assetName).")
         }
         let version = payload.tag_name.hasPrefix("v") ? String(payload.tag_name.dropFirst()) : payload.tag_name
-        return Release(version: version, zipURL: zip.browser_download_url, pageURL: payload.html_url)
+        return Release(version: version, zipURL: zip.browser_download_url,
+                       sha256: String(digest.dropFirst("sha256:".count)).lowercased(), pageURL: payload.html_url)
     }
 
     /// Compares dotted version numbers, so 1.10.0 is newer than 1.9.0.
-    static func compare(_ a: String, _ b: String) -> ComparisonResult {
+    nonisolated static func compare(_ a: String, _ b: String) -> ComparisonResult {
         let x = a.split(separator: ".").map { Int($0) ?? 0 }
         let y = b.split(separator: ".").map { Int($0) ?? 0 }
         for i in 0..<max(x.count, y.count) {
@@ -118,41 +135,55 @@ final class Updater {
         state = .installing(release.version)
         Task {
             do {
-                let newApp = try await download(release)
-                await MainActor.run { relaunch(into: newApp, version: release.version) }
+                let newApp = try await Self.download(release)
+                relaunch(into: newApp, version: release.version)
             } catch {
                 log.error("Update to \(release.version, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
-                await MainActor.run {
-                    state = .failed(error.localizedDescription)
-                    errorAlert("Couldn't install Voice Clicker \(release.version)", error)
-                }
+                state = .failed(error.localizedDescription)
+                errorAlert("Couldn't install Voice Clicker \(release.version)", error)
             }
         }
     }
 
     /// Downloads and unzips the release, and checks it's really our app.
-    private func download(_ release: Release) async throws -> URL {
+    /// Runs off the main thread, since unzipping and codesign block.
+    private nonisolated static func download(_ release: Release) async throws -> URL {
+        let files = FileManager.default
         let parent = Bundle.main.bundleURL.deletingLastPathComponent().path
-        guard FileManager.default.isWritableFile(atPath: parent) else {
+        guard files.isWritableFile(atPath: parent) else {
             throw UpdateError("Voice Clicker can't replace itself in \(parent). Download it from the release page instead.")
         }
         let (zip, response) = try await URLSession.shared.download(from: release.zipURL)
+        defer { try? files.removeItem(at: zip) }
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw UpdateError("The download failed.") }
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("VoiceClickerUpdate-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try run("/usr/bin/ditto", "-x", "-k", zip.path, folder.path)
-        try? FileManager.default.removeItem(at: zip)
-
-        guard let app = try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
-            .first(where: { $0.pathExtension == "app" }),
-              let bundle = Bundle(url: app),
-              bundle.bundleIdentifier == Bundle.main.bundleIdentifier else {
-            throw UpdateError("The download doesn't contain Voice Clicker.")
+        let hash = SHA256.hash(data: try Data(contentsOf: zip)).map { String(format: "%02x", $0) }.joined()
+        guard hash == release.sha256 else {
+            throw UpdateError("The download doesn't match the release's checksum.")
         }
-        // Same check macOS makes before reusing permission grants.
-        let requirement = "-R=identifier \"\(Bundle.main.bundleIdentifier ?? "")\""
-        try run("/usr/bin/codesign", "--verify", "--deep", "--strict", requirement, app.path)
-        return app
+
+        let folder = files.temporaryDirectory.appendingPathComponent("VoiceClickerUpdate-\(UUID().uuidString)")
+        try files.createDirectory(at: folder, withIntermediateDirectories: true)
+        do {
+            try run("/usr/bin/ditto", "-x", "-k", zip.path, folder.path)
+            let app = folder.appendingPathComponent(appName)
+            // A real folder, not a symlink pointing somewhere else.
+            let isLink = (try? app.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink ?? true
+            guard !isLink, let bundle = Bundle(url: app),
+                  bundle.bundleIdentifier == Bundle.main.bundleIdentifier else {
+                throw UpdateError("The download doesn't contain Voice Clicker.")
+            }
+            let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+            guard version == release.version else {
+                throw UpdateError("The download is version \(version ?? "unknown"), not \(release.version).")
+            }
+            // Same check macOS makes before reusing permission grants.
+            let requirement = "-R=identifier \"\(Bundle.main.bundleIdentifier ?? "")\""
+            try run("/usr/bin/codesign", "--verify", "--deep", "--strict", requirement, app.path)
+            return app
+        } catch {
+            try? files.removeItem(at: folder)
+            throw error
+        }
     }
 
     /// Hands over to a small script that swaps the app once we've quit, then opens it.
@@ -163,6 +194,7 @@ final class Updater {
         backup="$NEW.old"
         mv "$CURRENT" "$backup" || exit 1
         if mv "$NEW" "$CURRENT"; then rm -rf "$backup"; else mv "$backup" "$CURRENT"; fi
+        rm -rf "$(dirname "$NEW")"
         xattr -dr com.apple.quarantine "$CURRENT" 2>/dev/null
         open "$CURRENT"
         """
@@ -184,7 +216,7 @@ final class Updater {
         NSApp.terminate(nil)
     }
 
-    private func run(_ tool: String, _ arguments: String...) throws {
+    private nonisolated static func run(_ tool: String, _ arguments: String...) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: tool)
         process.arguments = arguments
