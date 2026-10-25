@@ -115,6 +115,9 @@ private final class HIDPPBattery {
     private var lookup = 0
     private var feature: (id: UInt16, index: UInt8)?
     private var unsupported = false
+    /// When the pending feature lookup went out. Replies don't say which
+    /// feature they answer, so only one lookup is in flight at a time.
+    private var lookupSentAt: Date?
 
     init(device: IOHIDDevice, deviceIndex: UInt8) {
         self.device = device
@@ -154,6 +157,8 @@ private final class HIDPPBattery {
             send(featureIndex: feature.index, function: feature.id == 0x1004 ? 1 : 0)
         } else {
             // Root feature (index 0), function 0: look up a feature's index.
+            if let sent = lookupSentAt, Date().timeIntervalSince(sent) < 5 { return }
+            lookupSentAt = Date()
             let id = Self.features[lookup]
             send(featureIndex: 0, function: 0, params: [UInt8(id >> 8), UInt8(id & 0xFF)])
         }
@@ -183,11 +188,13 @@ private final class HIDPPBattery {
 
         if featureIndex == 0xFF || featureIndex == 0x8F {
             // An error, usually because the clicker is asleep. Try again on the next refresh.
+            lookupSentAt = nil
             log.info("HID++ error \(params.count > 1 ? params[1] : 0) from the Spotlight")
             return
         }
 
-        if featureIndex == 0, function == 0, softwareID == Self.softwareID, feature == nil {
+        if featureIndex == 0, function == 0, softwareID == Self.softwareID, feature == nil, lookupSentAt != nil {
+            lookupSentAt = nil
             let id = Self.features[lookup]
             if params[0] != 0 {
                 feature = (id, params[0])
