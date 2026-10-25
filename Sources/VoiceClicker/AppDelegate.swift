@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let settings = Settings.shared
     private let hid = SpotlightHID()
     private let keyTap = KeyTap()
+    private let updater = Updater()
     private var statusItem: NSStatusItem!
     /// True while waiting for the user to press a new dictation shortcut.
     private var recordingShortcut = false
@@ -31,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // A fixed width, so swapping icons never makes the menu bar relayout.
+        // It only grows to fit the battery level.
         statusItem = NSStatusBar.system.statusItem(withLength: Self.iconSize.width + 6)
         // Remember where the icon was ⌘-dragged to in the menu bar.
         statusItem.autosaveName = "VoiceClicker"
@@ -42,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.hidButton(button, pressed: pressed, seized: seized)
         }
         hid.onDevicesChanged = { [weak self] in self?.refreshIcon() }
+        hid.battery.onChange = { [weak self] in self?.refreshIcon() }
         keyTap.handler = { [weak self] code, flags, isDown, isRepeat in
             self?.keyEvent(code, flags: flags, isDown: isDown, isRepeat: isRepeat) ?? false
         }
@@ -62,7 +65,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.refreshIcon()
             }
         }
+        Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            self?.hid.battery.refresh()
+        }
         refreshIcon()
+
+        // Give the network a moment after login, then update if there's a new release.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            self?.updater.check(interactive: false)
+        }
     }
 
     private func startServices() {
@@ -81,6 +92,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func hidButton(_ button: SpotlightButton, pressed: Bool, seized: Bool) {
         let acting = settings.enabled && isTargetFrontmost
         let code = button.keyCode
+        // A press means the clicker is awake, so ask again if the level is unknown.
+        if pressed && hid.battery.status == nil { hid.battery.refresh() }
         if seized {
             // Exclusive access hides the clicker's keys from the system, so
             // pass them on ourselves when the clicker isn't acting.
@@ -174,6 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         button.image = Self.icon(symbol, listeningDot: listeningDot)
         button.contentTintColor = tint
+        showBattery(on: button)
         // Dimmed when off, disconnected or missing a permission.
         button.appearsDisabled = !isReady && !flashingEnter && !recordingShortcut
         let status = statusLine
@@ -185,6 +199,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private static let iconSize = NSSize(width: 22, height: 18)
+
+    /// The battery percentage beside the icon while the Spotlight is connected.
+    private var batteryText: String? {
+        guard hid.isConnected, let status = hid.battery.status else { return nil }
+        return "\(status.percent)%"
+    }
+
+    private func showBattery(on button: NSStatusBarButton) {
+        let text = batteryText ?? ""
+        let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize(for: .small), weight: .regular)
+        button.font = font
+        button.title = text
+        button.imagePosition = text.isEmpty ? .imageOnly : .imageLeading
+        var length = Self.iconSize.width + 6
+        if !text.isEmpty {
+            // Sized for "100%" so the width doesn't change as the level drops.
+            length += ("100%" as NSString).size(withAttributes: [.font: font]).width + 4
+        }
+        if statusItem.length != length { statusItem.length = length }
+    }
 
     /// The menu bar image, with a small red dot while the mic is recording. Every state
     /// is drawn on the same canvas so the icon never changes size.
@@ -236,6 +270,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.removeAllItems()
 
         menu.addItem(disabled(isReady ? "Voice Clicker is running" : "Voice Clicker: \(statusLine)"))
+        if let battery = batteryText {
+            let charging = hid.battery.status?.charging == true ? ", charging" : ""
+            menu.addItem(disabled("Spotlight battery: \(battery)\(charging)"))
+        }
         if !Permissions.accessibility {
             menu.addItem(item("Grant Accessibility…", #selector(grantAccessibility)))
         }
@@ -254,6 +292,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
+        if case .installing(let version) = updater.state {
+            menu.addItem(disabled("Installing \(version)…"))
+        } else {
+            menu.addItem(item("Check for Updates…", #selector(checkForUpdates)))
+        }
         menu.addItem(item("Launch at Login", #selector(toggleLaunchAtLogin), on: SMAppService.mainApp.status == .enabled))
         menu.addItem(item("Quit", #selector(quit), key: "q"))
     }
@@ -262,6 +305,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let advanced = NSMenu()
         advanced.addItem(disabled(statusLine))
         advanced.addItem(disabled("Last action: \(lastAction)"))
+        if let status = hid.battery.status {
+            advanced.addItem(disabled("Battery: \(status.percent)% from \(status.source)"))
+        }
+        advanced.addItem(disabled("Version \(Updater.currentVersion)"))
         advanced.addItem(.separator())
 
         let shortcut = NSMenu()
@@ -374,6 +421,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } catch {
             lastAction = "Launch at Login failed: \(error.localizedDescription)"
         }
+    }
+
+    @objc private func checkForUpdates() {
+        updater.check(interactive: true)
     }
 
     @objc private func quit() {

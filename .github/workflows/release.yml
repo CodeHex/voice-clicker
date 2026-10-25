@@ -1,0 +1,24 @@
+name: Release
+
+# Push a version tag to publish a release, which the app's update check finds:
+#   git tag v1.0.1 && git push origin v1.0.1
+on:
+  push:
+    tags: ['v[0-9]*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build app bundle
+        run: VERSION="${GITHUB_REF_NAME#v}" BUILD_NUMBER="${{ github.run_number }}" ./scripts/build-app.sh
+      - name: Zip app
+        run: ditto -c -k --keepParent "build/Voice Clicker.app" "build/VoiceClicker.zip"
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" build/VoiceClicker.zip --title "Voice Clicker ${GITHUB_REF_NAME#v}" --generate-notes
