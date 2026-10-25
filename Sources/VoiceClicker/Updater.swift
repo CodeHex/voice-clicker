@@ -16,7 +16,6 @@ private let log = Logger(subsystem: "com.codehex.VoiceClicker", category: "updat
 /// Releases are signed ad-hoc, so the signature check only proves the bundle
 /// ID, not who built it. What the update can be trusted for is that it came
 /// from this repo's GitHub releases over HTTPS.
-@MainActor
 final class Updater {
     static let repo = "CodeHex/voice-clicker"
     static let assetName = "VoiceClicker.zip"
@@ -36,7 +35,7 @@ final class Updater {
 
     private(set) var state = State.idle
 
-    nonisolated static var currentVersion: String {
+    static var currentVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
     }
 
@@ -65,20 +64,24 @@ final class Updater {
                 let release = try await Self.latestRelease()
                 let newer = Self.compare(release.version, Self.currentVersion) == .orderedDescending
                 log.info("Latest release \(release.version, privacy: .public), running \(Self.currentVersion, privacy: .public)")
-                state = .idle
-                if !newer {
-                    if interactive { upToDateAlert() }
-                } else if !interactive {
-                    guard Self.canAutoInstall, lastAutoInstall != release.version else { return }
-                    lastAutoInstall = release.version
-                    install(release)
-                } else if confirmInstall(release) {
-                    install(release)
+                await MainActor.run {
+                    state = .idle
+                    if !newer {
+                        if interactive { upToDateAlert() }
+                    } else if !interactive {
+                        guard Self.canAutoInstall, lastAutoInstall != release.version else { return }
+                        lastAutoInstall = release.version
+                        install(release)
+                    } else if confirmInstall(release) {
+                        install(release)
+                    }
                 }
             } catch {
                 log.error("Update check failed: \(error.localizedDescription, privacy: .public)")
-                state = .failed(error.localizedDescription)
-                if interactive { errorAlert("Couldn't check for updates", error) }
+                await MainActor.run {
+                    state = .failed(error.localizedDescription)
+                    if interactive { errorAlert("Couldn't check for updates", error) }
+                }
             }
         }
     }
@@ -90,7 +93,7 @@ final class Updater {
 
     // MARK: - GitHub
 
-    private nonisolated static func latestRelease() async throws -> Release {
+    private static func latestRelease() async throws -> Release {
         var request = URLRequest(url: URL(string: "https://api.github.com/repos/\(Self.repo)/releases/latest")!)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.cachePolicy = .reloadIgnoringLocalCacheData
@@ -119,7 +122,7 @@ final class Updater {
     }
 
     /// Compares dotted version numbers, so 1.10.0 is newer than 1.9.0.
-    nonisolated static func compare(_ a: String, _ b: String) -> ComparisonResult {
+    static func compare(_ a: String, _ b: String) -> ComparisonResult {
         let x = a.split(separator: ".").map { Int($0) ?? 0 }
         let y = b.split(separator: ".").map { Int($0) ?? 0 }
         for i in 0..<max(x.count, y.count) {
@@ -136,18 +139,19 @@ final class Updater {
         Task {
             do {
                 let newApp = try await Self.download(release)
-                relaunch(into: newApp, version: release.version)
+                await MainActor.run { relaunch(into: newApp, version: release.version) }
             } catch {
                 log.error("Update to \(release.version, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
-                state = .failed(error.localizedDescription)
-                errorAlert("Couldn't install Voice Clicker \(release.version)", error)
+                await MainActor.run {
+                    state = .failed(error.localizedDescription)
+                    errorAlert("Couldn't install Voice Clicker \(release.version)", error)
+                }
             }
         }
     }
 
     /// Downloads and unzips the release, and checks it's really our app.
-    /// Runs off the main thread, since unzipping and codesign block.
-    private nonisolated static func download(_ release: Release) async throws -> URL {
+    private static func download(_ release: Release) async throws -> URL {
         let files = FileManager.default
         let parent = Bundle.main.bundleURL.deletingLastPathComponent().path
         guard files.isWritableFile(atPath: parent) else {
@@ -216,7 +220,7 @@ final class Updater {
         NSApp.terminate(nil)
     }
 
-    private nonisolated static func run(_ tool: String, _ arguments: String...) throws {
+    private static func run(_ tool: String, _ arguments: String...) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: tool)
         process.arguments = arguments
