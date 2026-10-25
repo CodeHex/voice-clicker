@@ -126,3 +126,4 @@ git tag v1.0.1 && git push origin v1.0.1
 - `Updater.swift` checks the latest GitHub release, downloads the zip, checks its checksum, version and that its signature is pinned to our bundle ID, swaps it in once the app quits and reopens it.
 - `Microphone.swift` asks Core Audio whether the default microphone is recording, which drives the red dot.
 - `StatusIcon.swift` draws the menu bar icon, and `AppDelegate.swift` is the menu and the glue between the rest.
+- `Resources/AppIcon/AppIcon.svg` is the app icon's source. After editing it, render it to the 1024×1024 `AppIcon.png` next to it (it was rendered in Chromium; the code rain uses a Japanese pixel font, Unifont-JP, so other renderers may substitute a different one); `build-app.sh` turns that PNG into the bundle's `.icns` with `sips` and `iconutil`.

@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Rendered to AppIcon.png with Chromium; the rain uses half-width katakana,
+       so other renderers may pick a different font. -->
+  <defs>
+    <clipPath id="tile"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+    <radialGradient id="bg" cx="0.5" cy="0.45" r="0.75">
+      <stop offset="0" stop-color="#062414"/>
+      <stop offset="1" stop-color="#010604"/>
+    </radialGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0B0F0D"/>
+      <stop offset="0.4" stop-color="#2A322E"/>
+      <stop offset="0.6" stop-color="#1A201D"/>
+      <stop offset="1" stop-color="#050706"/>
+    </linearGradient>
+    <radialGradient id="core" cx="0.5" cy="0.4" r="0.6">
+      <stop offset="0" stop-color="#E9FFEE"/>
+      <stop offset="0.45" stop-color="#4DFF8C"/>
+      <stop offset="1" stop-color="#00B347"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softglow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="iconShadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- macOS icon grid: 824pt rounded square centred on a 1024 canvas -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)" filter="url(#iconShadow)"/>
+
+  <g clip-path="url(#tile)">
+    <!-- digital rain -->
+    <g font-family="Unifont-JP, 'WenQuanYi Zen Hei', 'Hiragino Sans', monospace" font-size="36" text-anchor="middle" filter="url(#softglow)">
+      <text x="190" y="470" fill="#B8FFC8" fill-opacity="0.75">ﾅ</text>
+      <text x="190" y="432" fill="#19FF6A" fill-opacity="0.44">+</text>
+      <text x="190" y="394" fill="#19FF6A" fill-opacity="0.38">ｺ</text>
+      <text x="190" y="356" fill="#19FF6A" fill-opacity="0.31">ﾊ</text>
+      <text x="190" y="318" fill="#19FF6A" fill-opacity="0.25">ﾚ</text>
+      <text x="190" y="280" fill="#19FF6A" fill-opacity="0.19">ｴ</text>
+      <text x="190" y="242" fill="#19FF6A" fill-opacity="0.12">ｵ</text>
+      <text x="190" y="204" fill="#19FF6A" fill-opacity="0.06">7</text>
+      <text x="250" y="330" fill="#B8FFC8" fill-opacity="0.75">ﾓ</text>
+      <text x="250" y="292" fill="#19FF6A" fill-opacity="0.40">ｷ</text>
+      <text x="250" y="254" fill="#19FF6A" fill-opacity="0.30">ﾈ</text>
+      <text x="250" y="216" fill="#19FF6A" fill-opacity="0.20">ﾖ</text>
+      <text x="250" y="178" fill="#19FF6A" fill-opacity="0.10">ｴ</text>
+      <text x="310" y="250" fill="#B8FFC8" fill-opacity="0.75">=</text>
+      <text x="310" y="212" fill="#19FF6A" fill-opacity="0.33">ﾑ</text>
+      <text x="310" y="174" fill="#19FF6A" fill-opacity="0.17">ｾ</text>
+      <text x="720" y="900" fill="#B8FFC8" fill-opacity="0.75">ｳ</text>
+      <text x="720" y="862" fill="#19FF6A" fill-opacity="0.42">ｶ</text>
+      <text x="720" y="824" fill="#19FF6A" fill-opacity="0.33">ﾌ</text>
+      <text x="720" y="786" fill="#19FF6A" fill-opacity="0.25">ﾋ</text>
+      <text x="720" y="748" fill="#19FF6A" fill-opacity="0.17">ｵ</text>
+      <text x="720" y="710" fill="#19FF6A" fill-opacity="0.08">ﾀ</text>
+      <text x="790" y="820" fill="#B8FFC8" fill-opacity="0.75">ｶ</text>
+      <text x="790" y="782" fill="#19FF6A" fill-opacity="0.44">ﾔ</text>
+      <text x="790" y="744" fill="#19FF6A" fill-opacity="0.38">ﾌ</text>
+      <text x="790" y="706" fill="#19FF6A" fill-opacity="0.31">ｴ</text>
+      <text x="790" y="668" fill="#19FF6A" fill-opacity="0.25">7</text>
+      <text x="790" y="630" fill="#19FF6A" fill-opacity="0.19">ﾕ</text>
+      <text x="790" y="592" fill="#19FF6A" fill-opacity="0.12">ｸ</text>
+      <text x="790" y="554" fill="#19FF6A" fill-opacity="0.06">+</text>
+      <text x="850" y="940" fill="#B8FFC8" fill-opacity="0.75">ｿ</text>
+      <text x="850" y="902" fill="#19FF6A" fill-opacity="0.40">ﾙ</text>
+      <text x="850" y="864" fill="#19FF6A" fill-opacity="0.30">ﾙ</text>
+      <text x="850" y="826" fill="#19FF6A" fill-opacity="0.20">ﾖ</text>
+      <text x="850" y="788" fill="#19FF6A" fill-opacity="0.10">+</text>
+    </g>
+
+    <g transform="translate(470 585) rotate(32) scale(0.9)">
+      <!-- signal waves -->
+      <g fill="none" stroke="#3DFF7F" stroke-linecap="butt" stroke-width="26" filter="url(#glow)">
+        <path d="M -62 -332 A 88 88 0 0 1 62 -332"/>
+        <path d="M -118 -380 A 165 165 0 0 1 118 -380" stroke-opacity="0.5"/>
+      </g>
+      <!-- clicker -->
+      <rect x="-88" y="-290" width="176" height="580" rx="88" fill="url(#body)"/>
+      <rect x="-88" y="-290" width="176" height="580" rx="88" fill="none" stroke="#3DFF7F" stroke-width="6" filter="url(#glow)"/>
+      <!-- pointer button -->
+      <circle cx="0" cy="-185" r="28" fill="#070A08" stroke="#3DFF7F" stroke-opacity="0.7" stroke-width="4"/>
+      <!-- next button, lit: it starts dictation -->
+      <circle cx="0" cy="-30" r="60" fill="url(#core)" filter="url(#glow)"/>
+      <!-- back button, sends Enter -->
+      <circle cx="0" cy="130" r="40" fill="#070A08" stroke="#3DFF7F" stroke-opacity="0.7" stroke-width="4"/>
+      <path transform="translate(0 130) rotate(-32)" d="M 15 -15 V 5 H -14 M -4 -5 L -14 5 L -4 15" fill="none" stroke="#3DFF7F" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter" filter="url(#softglow)"/>
+    </g>
+  </g>
+  <rect x="102" y="102" width="820" height="820" rx="183" fill="none" stroke="#3DFF7F" stroke-opacity="0.35" stroke-width="4"/>
+</svg>

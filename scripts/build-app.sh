@@ -24,6 +24,18 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/VoiceClicker" "$APP/Contents/MacOS/VoiceClicker"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 
+# App icon: Resources/AppIcon/AppIcon.png (rendered from AppIcon.svg) turned
+# into an .icns with the system tools.
+ICONSET="build/AppIcon.iconset"
+rm -rf "$ICONSET"
+mkdir -p "$ICONSET"
+for SIZE in 16 32 128 256 512; do
+  sips -z "$SIZE" "$SIZE" Resources/AppIcon/AppIcon.png --out "$ICONSET/icon_${SIZE}x${SIZE}.png" >/dev/null
+  sips -z $((SIZE * 2)) $((SIZE * 2)) Resources/AppIcon/AppIcon.png --out "$ICONSET/icon_${SIZE}x${SIZE}@2x.png" >/dev/null
+done
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+rm -rf "$ICONSET"
+
 VERSION="${VERSION:-$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null | sed 's/^v//' || true)}"
 if [[ -n "$VERSION" ]]; then
   if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
