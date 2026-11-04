@@ -217,7 +217,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             listeningDot = isReady && micInUse
         }
-        button.image = StatusIcon.image(symbol, listeningDot: listeningDot)
+        // Blue dot: the Spotlight is on this Mac's own Bluetooth, not the relay.
+        let bluetoothDot = !flashingEnter && !recordingShortcut && hid.isBluetooth
+        button.image = StatusIcon.image(symbol, listeningDot: listeningDot, bluetoothDot: bluetoothDot)
         button.contentTintColor = tint
         showBattery(on: button)
         // Dimmed when off, disconnected or missing a permission.

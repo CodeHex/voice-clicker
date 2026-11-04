@@ -137,16 +137,25 @@ class App:
         self.redraw()
 
     def spotlight_changed(self) -> None:
+        address = self.spotlight.address
+        if address and address != self.state.spotlight:
+            # Paired some other way than KEY2, such as bluetoothctl.
+            self.state.spotlight = address
+            self.state.save()
+            asyncio.ensure_future(self.refresh_battery())
         self.broadcast_state()
         self.redraw()
 
+    async def refresh_battery(self) -> None:
+        level = await bt.battery(self.state.spotlight) if self.state.spotlight else None
+        if level != self.battery:
+            self.battery = level
+            self.broadcast_state()
+            self.redraw()
+
     async def watch_battery(self) -> None:
         while True:
-            level = await bt.battery(self.state.spotlight) if self.state.spotlight else None
-            if level != self.battery:
-                self.battery = level
-                self.broadcast_state()
-                self.redraw()
+            await self.refresh_battery()
             await asyncio.sleep(60)
 
     async def pair_spotlight(self) -> None:

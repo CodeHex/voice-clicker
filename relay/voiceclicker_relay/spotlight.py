@@ -39,6 +39,8 @@ class Spotlight:
         self.on_button = on_button
         self.on_change = on_change
         self.devices: dict[str, evdev.InputDevice] = {}
+        # The Bluetooth address of the last Spotlight seen, which Linux puts in the device's uniq.
+        self.address: str | None = None
 
     @property
     def connected(self) -> bool:
@@ -61,6 +63,8 @@ class Spotlight:
                 except OSError:
                     log.warning("Couldn't grab %s", device.name)
                 self.devices[path] = device
+                if device.uniq:
+                    self.address = device.uniq.upper()
                 log.info("Spotlight input %s (%s)", device.name, path)
                 asyncio.create_task(self._read(path, device))
                 self.on_change()
@@ -98,32 +102,63 @@ async def battery(address: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
+_ANSI = re.compile(r"\x1b\[[0-9;]*m|\x01|\x02")
+_DEVICE = re.compile(r"Device ([0-9A-F:]{17}) (.*)")
+
+
 async def pair(seconds: int = 40) -> str | None:
-    """Scans for a Spotlight in pairing mode and pairs it. Returns its address."""
-    await _bluetoothctl("power", "on")
-    await _bluetoothctl("pairable", "on")
-    scan = asyncio.create_task(_bluetoothctl("--timeout", str(seconds), "scan", "le", timeout=seconds + 5))
-    address = None
+    """Scans for a Spotlight in pairing mode and pairs it. Returns its address.
+
+    It runs one interactive bluetoothctl session, because a scan and an
+    agent only last as long as the session that started them.
+    """
+    # A bond left over from an earlier pairing makes the new one fail.
+    for line in (await _bluetoothctl("devices")).splitlines():
+        match = _DEVICE.search(_ANSI.sub("", line))
+        if match and "spotlight" in match.group(2).lower():
+            await _bluetoothctl("remove", match.group(1))
+
+    process = await asyncio.create_subprocess_exec(
+        "bluetoothctl", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT)
+
+    def send(command: str) -> None:
+        process.stdin.write(f"{command}\n".encode())
+
+    async def wait_for(pattern: re.Pattern[str], timeout: float) -> re.Match[str] | None:
+        deadline = asyncio.get_running_loop().time() + timeout
+        while (left := deadline - asyncio.get_running_loop().time()) > 0:
+            try:
+                raw = await asyncio.wait_for(process.stdout.readline(), left)
+            except TimeoutError:
+                return None
+            if not raw:
+                return None
+            if match := pattern.search(_ANSI.sub("", raw.decode(errors="replace"))):
+                return match
+        return None
+
     try:
-        for _ in range(seconds):
-            await asyncio.sleep(1)
-            for line in (await _bluetoothctl("devices")).splitlines():
-                parts = line.split(" ", 2)
-                if len(parts) == 3 and "spotlight" in parts[2].lower():
-                    address = parts[1]
-                    break
-            if address:
-                break
+        for command in ("power on", "pairable on", "agent NoInputNoOutput", "default-agent", "scan le"):
+            send(command)
+        found = await wait_for(re.compile(r"Device ([0-9A-F:]{17}) .*spotlight", re.IGNORECASE), seconds)
+        if not found:
+            return None
+        address = found.group(1)
+        log.info("Pairing Spotlight %s", address)
+        send("scan off")
+        send(f"pair {address}")
+        result = await wait_for(re.compile(r"Pairing successful|Failed to pair: (\S+)"), 30)
+        if not result or result.group(0).startswith("Failed"):
+            log.warning("Pairing failed: %s", result.group(1) if result else "no answer")
+            return None
+        send(f"trust {address}")
+        send(f"connect {address}")
+        await wait_for(re.compile(r"Connection successful|Failed to connect"), 15)
+        return address
     finally:
-        scan.cancel()
-        await _bluetoothctl("scan", "off")
-    if not address:
-        return None
-    log.info("Pairing Spotlight %s", address)
-    output = await _bluetoothctl("--agent", "NoInputNoOutput", "pair", address)
-    if "Pairing successful" not in output and "AlreadyExists" not in output:
-        log.warning("Pairing failed: %s", output.strip()[-300:])
-        return None
-    await _bluetoothctl("trust", address)
-    await _bluetoothctl("connect", address)
-    return address
+        send("quit")
+        try:
+            await asyncio.wait_for(process.wait(), 3)
+        except TimeoutError:
+            process.kill()

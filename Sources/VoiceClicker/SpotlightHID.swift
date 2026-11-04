@@ -22,6 +22,7 @@ final class SpotlightHID {
         let device: IOHIDDevice
         let name: String
         let seized: Bool
+        let bluetooth: Bool
     }
 
     /// Called with the button, whether it went down, and whether the
@@ -37,6 +38,8 @@ final class SpotlightHID {
 
     var isConnected: Bool { !devices.isEmpty }
     var allSeized: Bool { devices.allSatisfy(\.seized) }
+    /// Whether the Spotlight is connected over Bluetooth, rather than its USB receiver.
+    var isBluetooth: Bool { devices.contains(where: \.bluetooth) }
 
     func start() {
         stop()
@@ -118,7 +121,8 @@ final class SpotlightHID {
         }, context)
         IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
 
-        devices.append(Device(device: device, name: "\(product) (\(transport))", seized: seized))
+        devices.append(Device(device: device, name: "\(product) (\(transport))", seized: seized,
+                              bluetooth: transport.localizedCaseInsensitiveContains("bluetooth")))
         battery.attachRegistry(device)
         lastError = nil
         log.info("Opened \(product, privacy: .public) via \(transport, privacy: .public), exclusive: \(seized)")

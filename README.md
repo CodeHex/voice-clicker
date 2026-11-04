@@ -17,6 +17,7 @@ A small remote icon in the menu bar shows the app's state:
 | Remote with `80%` beside it | The Spotlight's battery level, shown while it's connected |
 | Dimmed remote | Off, the Spotlight isn't connected, or a permission is missing (open the menu to see which) |
 | Remote with a red dot | The microphone is recording (Claude is listening) |
+| Remote with a blue dot at the bottom right | The Spotlight is connected to this Mac over Bluetooth. With the USB receiver or the Wi-Fi relay there's no dot |
 | 🟢 return arrow (flash) | You pressed Back |
 | 🔵 hand | Waiting for you to press a new dictation shortcut |
 
