@@ -17,10 +17,11 @@ A small remote icon in the menu bar shows the app's state:
 | Remote with `80%` beside it | The Spotlight's battery level, shown while it's connected |
 | Dimmed remote | Off, the Spotlight isn't connected, or a permission is missing (open the menu to see which) |
 | Remote with a red dot | The microphone is recording (Claude is listening) |
+| Remote with a blue dot at the bottom right | The Spotlight is connected to this Mac over Bluetooth. With the USB receiver or the Wi-Fi relay there's no dot |
 | 🟢 return arrow (flash) | You pressed Back |
 | 🔵 hand | Waiting for you to press a new dictation shortcut |
 
-The menu stays minimal: whether the app is running, the Spotlight's battery, **Turn Off / Turn On**, **Check for Updates…**, **Launch at Login** and **Quit**. Hold **Option** while you click the icon to see **Advanced** settings.
+The menu stays minimal: whether the app is running, the Spotlight's battery, **Turn Off / Turn On**, **Wi-Fi Relay**, **Check for Updates…**, **Launch at Login** and **Quit**. Hold **Option** while you click the icon to see **Advanced** settings.
 
 If the icon vanishes when the menu bar gets crowded (on a MacBook with a notch, macOS hides the leftmost icons), hold **⌘** and drag the remote further right. The app remembers where you put it.
 
@@ -102,12 +103,19 @@ git tag v1.0.1 && git push origin v1.0.1
 3. Press **Next** again to stop dictation.
 4. Press **Back** to press Enter.
 
+## Wi-Fi Relay (optional)
+
+Instead of pairing the Spotlight with one Mac, you can pair it with a Raspberry Pi relay that sends its clicks over Wi-Fi to whichever of your Macs you pick on the Pi's screen. Turn on **Wi-Fi Relay** in the menu on each Mac and allow Local Network access. When you pair a Mac from the Pi, both show a six-digit code to compare. The menu then shows which relay is sending clicks to this Mac. [relay/README.md](relay/README.md) covers the hardware and setup.
+
+Clicks from the relay work exactly like clicks from a Spotlight connected to the Mac, so they only act while Claude is in front. A Spotlight connected straight to the Mac keeps working with Wi-Fi Relay on or off.
+
 ## Advanced settings (hold Option and click the icon)
 
 - The full status line and the last action the app took.
 - **Dictation Shortcut**: record a different shortcut for Next to send (Esc cancels), or reset it to ⌘D.
 - **Apps**: the apps the buttons act in, the Claude desktop app (`com.anthropic.claudefordesktop`) by default. Bring another app to the front, open the menu, and choose **Add …** to include it. Click an app in the list to remove it.
 - **Open Bluetooth Settings…**
+- **Relays**: the relays this Mac is paired with. Choose **Forget …** to remove one; it has to pair again before its clicks count.
 
 ## Troubleshooting
 
@@ -124,6 +132,7 @@ git tag v1.0.1 && git push origin v1.0.1
 - `Actions.swift` posts ⌘D and Enter through `CGEvent`, and handles the permission checks.
 - `Battery.swift` reads the Spotlight's battery: the `BatteryPercent` macOS publishes in the I/O Registry for Bluetooth devices if it's there, or else Logitech's HID++ protocol (Unified Battery `0x1004` or Battery Status `0x1000`) on the clicker's vendor interface, refreshed every minute.
 - `Updater.swift` checks the latest GitHub release, downloads the zip, checks its checksum, version and that its signature is pinned to our bundle ID, swaps it in once the app quits and reopens it.
+- `Relay.swift` listens for relays on a TCP port it advertises over Bonjour (`_voiceclicker._tcp`), and keeps each relay's key in the login keychain. `Sources/RelayProtocol` is the protocol itself, with no I/O: the key exchange, the pairing code and the signature checks. `swift run relay-protocol-check` checks it against the same vectors the Pi's tests use.
 - `Microphone.swift` asks Core Audio whether the default microphone is recording, which drives the red dot.
 - `StatusIcon.swift` draws the menu bar icon, and `AppDelegate.swift` is the menu and the glue between the rest.
 - `Resources/AppIcon/AppIcon.svg` is the app icon's source. After editing it, render it to the 1024×1024 `AppIcon.png` next to it (it was rendered in Chromium; the code rain uses a Japanese pixel font, Unifont-JP, so other renderers may substitute a different one); `build-app.sh` turns that PNG into the bundle's `.icns` with `sips` and `iconutil`.

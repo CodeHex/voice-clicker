@@ -19,6 +19,22 @@ final class Settings {
         set { defaults.set(try? JSONEncoder().encode(newValue), forKey: "dictationShortcut") }
     }
 
+    /// Whether to take clicks from a relay over Wi-Fi as well as from a
+    /// Spotlight connected to this Mac. Off by default, because it asks for
+    /// Local Network access.
+    var relayEnabled: Bool {
+        get { defaults.bool(forKey: "relayEnabled") }
+        set { defaults.set(newValue, forKey: "relayEnabled") }
+    }
+
+    /// This Mac's id on the relay, made once.
+    var relayMacID: String {
+        if let id = defaults.string(forKey: "relayMacID") { return id }
+        let id = UUID().uuidString
+        defaults.set(id, forKey: "relayMacID")
+        return id
+    }
+
     /// Apps the clicker drives. With anything else in front, the clicker's
     /// keys pass through untouched so it still works as a presenter.
     var targetBundleIDs: [String] {

@@ -9,6 +9,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let hid = SpotlightHID()
     private let keyTap = KeyTap()
     private let updater = Updater()
+    private let relay = RelayServer()
+    /// The open "Pair with relay?" question, and the relay it's about.
+    private var pairingAlert: (alert: NSAlert, link: RelayLink)?
     private var statusItem: NSStatusItem!
     /// True while waiting for the user to press a new dictation shortcut.
     private var recordingShortcut = false
@@ -45,6 +48,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         hid.onDevicesChanged = { [weak self] in self?.refreshIcon() }
         hid.battery.onChange = { [weak self] in self?.refreshIcon() }
+        // A relay holds the Spotlight itself, so its clicks never reach the
+        // system as keys. Handle them like an exclusively opened device.
+        relay.onButton = { [weak self] button, pressed in
+            self?.hidButton(button, pressed: pressed, seized: true)
+        }
+        relay.onChange = { [weak self] in self?.refreshIcon() }
+        relay.onPairRequest = { [weak self] link, code in
+            DispatchQueue.main.async { self?.askToPair(link, code: code) }
+        }
+        relay.onPairingEnded = { [weak self] link, stored in
+            guard let self, let open = self.pairingAlert, open.link === link else { return }
+            if !stored { NSApp.abortModal() }
+        }
         keyTap.handler = { [weak self] code, flags, isDown, isRepeat in
             self?.keyEvent(code, flags: flags, isDown: isDown, isRepeat: isRepeat) ?? false
         }
@@ -84,6 +100,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hadInputMonitoring = inputMonitoring
 
         if !hid.isRunning || gainedInputMonitoring { hid.start() }
+        if settings.relayEnabled != relay.isRunning {
+            settings.relayEnabled ? relay.start() : relay.stop()
+        }
         refreshIcon()
     }
 
@@ -164,7 +183,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Status icon
 
     private var isReady: Bool {
-        settings.enabled && Permissions.accessibility && hid.isConnected
+        settings.enabled && Permissions.accessibility && (hid.isConnected || relayIsSendingHere)
+    }
+
+    /// Whether a paired relay is sending its Spotlight's clicks to this Mac.
+    private var relayIsSendingHere: Bool {
+        relay.activeLink?.spotlightConnected == true
     }
 
     private func flashEnter() {
@@ -193,7 +217,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             listeningDot = isReady && micInUse
         }
-        button.image = StatusIcon.image(symbol, listeningDot: listeningDot)
+        // Blue dot: the Spotlight is on this Mac's own Bluetooth, not the relay.
+        let bluetoothDot = !flashingEnter && !recordingShortcut && hid.isBluetooth
+        button.image = StatusIcon.image(symbol, listeningDot: listeningDot, bluetoothDot: bluetoothDot)
         button.contentTintColor = tint
         showBattery(on: button)
         // Dimmed when off, disconnected or missing a permission.
@@ -208,8 +234,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// The battery percentage beside the icon while the Spotlight is connected.
     private var batteryText: String? {
-        guard hid.isConnected, let status = hid.battery.status else { return nil }
-        return "\(status.percent)%"
+        if hid.isConnected, let status = hid.battery.status { return "\(status.percent)%" }
+        if relayIsSendingHere, let level = relay.activeLink?.battery { return "\(level)%" }
+        return nil
     }
 
     private func showBattery(on button: NSStatusBarButton) {
@@ -234,6 +261,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let device = hid.devices.first {
             return "On, \(device.name)\(hid.allSeized ? "" : ", shared access")"
         }
+        if relayIsSendingHere, let link = relay.activeLink { return "On, Spotlight via \(link.name)" }
         return hid.lastError ?? "On, waiting for Spotlight (press a button to wake it)"
     }
 
@@ -244,7 +272,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(disabled(isReady ? "Voice Clicker is running" : "Voice Clicker: \(statusLine)"))
         if let battery = batteryText {
-            let charging = hid.battery.status?.charging == true ? ", charging" : ""
+            let charging = hid.isConnected && hid.battery.status?.charging == true ? ", charging" : ""
             menu.addItem(disabled("Spotlight battery: \(battery)\(charging)"))
         }
         if !Permissions.accessibility {
@@ -258,6 +286,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(.separator())
         menu.addItem(item(settings.enabled ? "Turn Off" : "Turn On", #selector(toggleEnabled)))
+        menu.addItem(item("Wi-Fi Relay", #selector(toggleRelay), on: settings.relayEnabled))
+        if settings.relayEnabled {
+            menu.addItem(disabled("Relay: \(relay.status)"))
+        }
 
         // Everything else stays out of the way unless Option is held.
         if NSEvent.modifierFlags.contains(.option) {
@@ -308,6 +340,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         apps.addItem(item("Reset to Claude Desktop", #selector(resetTargetApps)))
         advanced.addItem(submenu("Apps", apps))
         advanced.addItem(item("Open Bluetooth Settings…", #selector(openBluetooth)))
+
+        let paired = relay.keys.paired
+        if !paired.isEmpty {
+            let relays = NSMenu()
+            relays.addItem(disabled("Paired relays:"))
+            for relayInfo in paired {
+                let i = item("Forget \(relayInfo.name)", #selector(forgetRelay(_:)))
+                i.representedObject = relayInfo.id
+                relays.addItem(i)
+            }
+            advanced.addItem(submenu("Relays", relays))
+        }
         return advanced
     }
 
@@ -333,6 +377,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func toggleEnabled() {
         settings.enabled.toggle()
         refreshIcon()
+    }
+
+    @objc private func toggleRelay() {
+        settings.relayEnabled.toggle()
+        startServices()
+    }
+
+    @objc private func forgetRelay(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        relay.forget(relayID: id)
+    }
+
+    /// Asks whether to pair with a relay, showing the code its screen shows.
+    private func askToPair(_ link: RelayLink, code: String) {
+        guard pairingAlert == nil else { return relay.confirmPairing(link, accepted: false) }
+        let alert = NSAlert()
+        alert.messageText = "Pair with \(link.name)?"
+        alert.informativeText = "Pair only if \(link.name)'s screen shows \(code). Once paired, its Spotlight clicks reach this Mac whenever you pick this Mac on the relay."
+        alert.addButton(withTitle: "Pair")
+        alert.addButton(withTitle: "Don't Pair")
+        pairingAlert = (alert, link)
+        NSApp.activate(ignoringOtherApps: true)
+        let response = alert.runModal()
+        pairingAlert = nil
+        // The relay gave up or disconnected while the question was up.
+        if response == .abort { return }
+        relay.confirmPairing(link, accepted: response == .alertFirstButtonReturn)
     }
 
     @objc private func grantAccessibility() {
