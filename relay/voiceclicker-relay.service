@@ -1,0 +1,18 @@
+[Unit]
+Description=Voice Clicker relay: Spotlight clicks over Wi-Fi
+After=bluetooth.target network-online.target
+Wants=bluetooth.target network-online.target
+
+[Service]
+User=voiceclicker
+# lgpio writes notification files to the working directory, so it must be writable.
+WorkingDirectory=/var/lib/voiceclicker-relay
+Environment=PYTHONPATH=/opt/voiceclicker-relay
+ExecStart=/usr/bin/python3 -m voiceclicker_relay
+StateDirectory=voiceclicker-relay
+StateDirectoryMode=0700
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

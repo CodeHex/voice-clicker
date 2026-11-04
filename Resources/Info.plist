@@ -28,5 +28,11 @@
 	<true/>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Wi-Fi Relay takes Spotlight clicks from a Voice Clicker relay on your network.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_voiceclicker._tcp</string>
+	</array>
 </dict>
 </plist>

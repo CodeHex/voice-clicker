@@ -7,6 +7,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "VoiceClicker",
+            dependencies: ["RelayProtocol"],
             path: "Sources/VoiceClicker",
             linkerSettings: [
                 .linkedFramework("AppKit"),
@@ -14,7 +15,17 @@ let package = Package(
                 .linkedFramework("ApplicationServices"),
                 .linkedFramework("ServiceManagement"),
                 .linkedFramework("CoreAudio"),
+                .linkedFramework("Network"),
+                .linkedFramework("Security"),
             ]
+        ),
+        // The Wi-Fi relay's messages, key exchange and signatures, with no I/O.
+        .target(name: "RelayProtocol", path: "Sources/RelayProtocol"),
+        // `swift run relay-protocol-check` checks RelayProtocol.
+        .executableTarget(
+            name: "relay-protocol-check",
+            dependencies: ["RelayProtocol"],
+            path: "Sources/RelayProtocolCheck"
         ),
     ]
 )
